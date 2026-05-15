@@ -2093,7 +2093,7 @@ const tableStates = {};
 
 function createTable(containerId, records, columns) {
   const catKey = TABLE_CAT_MAP[containerId] || 'FTS FIXAS';
-  const state = { page: 1, sort: 0, dir: 1, filter: '', cat: 'all', data: records };
+  const state = { page: 1, sort: 0, dir: -1, filter: '', cat: 'all', data: records };
   tableStates[containerId] = state;
 
   const container = document.getElementById(containerId);
@@ -2115,7 +2115,7 @@ function createTable(containerId, records, columns) {
     <div class="table-wrap">
       <table id="tbl-${containerId}">
         <thead><tr>
-          ${columns.map((c,i) => `<th onclick="sortTable('${containerId}',${i})">${c}</th>`).join('')}
+          ${columns.map((c,i) => `<th onclick="sortTable('${containerId}',${i})" class="${i===0?'desc':''}">${c}</th>`).join('')}
           <th style="width:80px;text-align:center">Ações</th>
         </tr></thead>
         <tbody id="tbody-${containerId}"></tbody>
