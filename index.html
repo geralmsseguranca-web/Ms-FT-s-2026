@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard FTS — 16 Abril a 15 Maio 2026</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -1376,6 +1379,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <button class="nav-tab" onclick="showPage('remanejamentos', this)">🔄 Remanejamentos</button>
   <button class="nav-tab" onclick="showPage('treinamento', this)">🎓 Treinamento</button>
   <button class="nav-tab" onclick="showPage('analytics', this)">📈 Analytics</button>
+  <button class="nav-tab" onclick="showPage('historico', this)">🗂️ Histórico</button>
   <button class="nav-tab" onclick="showPage('cadastros', this)" style="border-bottom-color:transparent">👥 Cadastros</button>
   <button class="nav-tab" onclick="showPage('diagnostico', this)" style="border-bottom-color:transparent">🔧 Diagnóstico</button>
 </nav>
@@ -1764,6 +1768,159 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
+<!-- HISTÓRICO PAGE -->
+<div id="page-historico" class="page">
+  <div class="section-title">🗂️ Histórico Completo de FTs</div>
+
+  <!-- KPI strip -->
+  <div class="kpi-grid" id="hist-kpis" style="margin-bottom:24px">
+    <div class="kpi-card" style="--card-accent:#00e5ff">
+      <div class="kpi-label">Total Filtrado</div>
+      <div class="kpi-value" id="hist-kpi-total">—</div>
+      <div class="kpi-sub">registros</div>
+    </div>
+    <div class="kpi-card" style="--card-accent:#34d399">
+      <div class="kpi-label">Valor Filtrado</div>
+      <div class="kpi-value" id="hist-kpi-valor">—</div>
+      <div class="kpi-sub">total selecionado</div>
+    </div>
+    <div class="kpi-card" style="--card-accent:#a78bfa">
+      <div class="kpi-label">Colaboradores</div>
+      <div class="kpi-value" id="hist-kpi-colab">—</div>
+      <div class="kpi-sub">únicos no filtro</div>
+    </div>
+    <div class="kpi-card" style="--card-accent:#fbbf24">
+      <div class="kpi-label">Postos</div>
+      <div class="kpi-value" id="hist-kpi-postos">—</div>
+      <div class="kpi-sub">únicos no filtro</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="chart-card" style="margin-bottom:20px">
+    <div class="chart-title"><span class="dot" style="background:var(--accent3);box-shadow:0 0 6px var(--accent3)"></span>Filtros</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px">
+
+      <!-- Colaborador -->
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px">Colaborador</label>
+        <div style="position:relative">
+          <input type="text" class="search-input" id="hist-f-colab" placeholder="Digite o nome..."
+                 autocomplete="off" style="width:100%"
+                 oninput="histFilterDatalist('hist-f-colab','hist-dl-colab',this.value,'colab')"
+                 onfocus="histShowDatalist('hist-dl-colab','hist-f-colab','colab')"
+                 onblur="histHideDatalist('hist-dl-colab')" />
+          <div id="hist-dl-colab" class="custom-dl" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Posto -->
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px">Posto</label>
+        <div style="position:relative">
+          <input type="text" class="search-input" id="hist-f-posto" placeholder="Digite o posto..."
+                 autocomplete="off" style="width:100%"
+                 oninput="histFilterDatalist('hist-f-posto','hist-dl-posto',this.value,'posto')"
+                 onfocus="histShowDatalist('hist-dl-posto','hist-f-posto','posto')"
+                 onblur="histHideDatalist('hist-dl-posto')" />
+          <div id="hist-dl-posto" class="custom-dl" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Motivo -->
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px">Motivo</label>
+        <select class="search-input" id="hist-f-motivo" onchange="renderHistorico()" style="width:100%">
+          <option value="">Todos os motivos</option>
+          <option value="BICO FIXO">BICO FIXO</option>
+          <option value="FÉRIAS">FÉRIAS</option>
+          <option value="APOIO EXTRA (A RECEBER)">APOIO EXTRA (A RECEBER)</option>
+          <option value="ATESTADOS">ATESTADOS</option>
+          <option value="FALTA DE EFETIVO">FALTA DE EFETIVO</option>
+          <option value="FALTA S/ JUSTIFICATIVA">FALTA S/ JUSTIFICATIVA</option>
+          <option value="FALTA C/ JUSTIFICATIVA">FALTA C/ JUSTIFICATIVA</option>
+          <option value="REMANEJAMENTO">REMANEJAMENTO</option>
+          <option value="TREINAMENTO">TREINAMENTO</option>
+          <option value="AFASTAMENTO">AFASTAMENTO</option>
+          <option value="SUSPENSÃO">SUSPENSÃO</option>
+          <option value="FOLGA DO VIGIA">FOLGA DO VIGIA</option>
+        </select>
+      </div>
+
+      <!-- Categoria -->
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px">Categoria</label>
+        <select class="search-input" id="hist-f-cat" onchange="renderHistorico()" style="width:100%">
+          <option value="">Todas as categorias</option>
+          <option value="FTS FIXAS">FTs Fixas</option>
+          <option value="FTS FERIAS">Férias</option>
+          <option value="FTS APOIO EXTRA">Apoio Extra</option>
+          <option value="FTS ATESTADOS e FALTAS">Atestados/Faltas</option>
+          <option value="FTS VAGAS EM ABERTO">Vagas em Aberto</option>
+          <option value="REMANEJAMENTOS">Remanejamentos</option>
+          <option value="FTS TREINAMENTO">Treinamento</option>
+        </select>
+      </div>
+
+      <!-- Data Início -->
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px">Data Início</label>
+        <input type="date" class="search-input" id="hist-f-data-ini" onchange="renderHistorico()" style="width:100%" />
+      </div>
+
+      <!-- Data Fim -->
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px">Data Fim</label>
+        <input type="date" class="search-input" id="hist-f-data-fim" onchange="renderHistorico()" style="width:100%" />
+      </div>
+
+    </div>
+
+    <!-- Busca livre + botão limpar -->
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <input type="text" class="search-input" id="hist-f-busca" placeholder="🔍 Busca livre (nome, posto, serviço, obs...)"
+             oninput="renderHistorico()" style="flex:1;min-width:220px" />
+      <button onclick="histClearFilters()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text-muted);padding:9px 18px;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap"
+              onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
+        ✕ Limpar filtros
+      </button>
+      <button onclick="histExportExcel()" style="background:linear-gradient(135deg,#34d399,#059669);border:none;border-radius:10px;color:#000;padding:9px 18px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;box-shadow:0 0 14px rgba(52,211,153,0.3)"
+              onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 0 22px rgba(52,211,153,0.55)'"
+              onmouseout="this.style.transform='';this.style.boxShadow='0 0 14px rgba(52,211,153,0.3)'">
+        📊 Excel
+      </button>
+      <button onclick="histExportPDF()" style="background:linear-gradient(135deg,#f87171,#dc2626);border:none;border-radius:10px;color:#fff;padding:9px 18px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;box-shadow:0 0 14px rgba(248,113,113,0.3)"
+              onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 0 22px rgba(248,113,113,0.55)'"
+              onmouseout="this.style.transform='';this.style.boxShadow='0 0 14px rgba(248,113,113,0.3)'">
+        📄 PDF
+      </button>
+      <span id="hist-result-count" style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text-muted);white-space:nowrap"></span>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table id="tbl-historico">
+      <thead>
+        <tr>
+          <th onclick="histSort(0)" id="hth-0" class="desc">Data</th>
+          <th onclick="histSort(1)" id="hth-1">Funcionário</th>
+          <th onclick="histSort(2)" id="hth-2">Posto</th>
+          <th onclick="histSort(3)" id="hth-3">Serviço</th>
+          <th onclick="histSort(4)" id="hth-4">Valor</th>
+          <th onclick="histSort(5)" id="hth-5">Motivo</th>
+          <th onclick="histSort(6)" id="hth-6">Categoria</th>
+          <th onclick="histSort(7)" id="hth-7">Cobertura</th>
+          <th style="width:60px;text-align:center">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-historico"></tbody>
+    </table>
+  </div>
+  <div class="pagination" id="pag-historico"></div>
+</div>
+
 </main>
 
 <!-- MODAL NOVA/EDITAR FT -->
@@ -1950,6 +2107,11 @@ function showPage(id, btn) {
   if (id === 'analytics' && !window.analyticsRendered) {
     renderAnalyticsCharts();
     window.analyticsRendered = true;
+  }
+
+  // Render histórico on every visit so data is always fresh
+  if (id === 'historico') {
+    renderHistorico();
   }
 
   // Lazy build + render cadastros
@@ -2603,6 +2765,11 @@ function syncAll() {
   renderOverviewCharts();
   renderCategoryList();
 
+  // Re-render histórico if it's the active page
+  if (document.getElementById('page-historico')?.classList.contains('active')) {
+    renderHistorico();
+  }
+
   // Reset analytics flag so charts re-render if tab visited
   window.analyticsRendered = false;
 }
@@ -3117,6 +3284,668 @@ window.hideSyncOverlay = function() {
   const el = document.getElementById('sync-overlay');
   if (el) el.classList.remove('show');
 };
+
+// ==================== HISTÓRICO ====================
+const HIST_PAGE_SIZE = 25;
+const histState = { page: 1, sortCol: 0, sortDir: -1 };
+
+const HIST_CAT_LABELS = {
+  'FTS FIXAS': 'FTs Fixas',
+  'FTS FERIAS': 'Férias',
+  'FTS APOIO EXTRA': 'Apoio Extra',
+  'FTS ATESTADOS e FALTAS': 'Atestados/Faltas',
+  'FTS VAGAS EM ABERTO': 'Vagas em Aberto',
+  'REMANEJAMENTOS': 'Remanejamentos',
+  'FTS TREINAMENTO': 'Treinamento'
+};
+
+const HIST_CAT_COLORS = {
+  'FTS FIXAS': '#00e5ff',
+  'FTS FERIAS': '#a78bfa',
+  'FTS APOIO EXTRA': '#34d399',
+  'FTS ATESTADOS e FALTAS': '#fbbf24',
+  'FTS VAGAS EM ABERTO': '#f87171',
+  'REMANEJAMENTOS': '#ff6b35',
+  'FTS TREINAMENTO': '#38bdf8'
+};
+
+function histGetAllRecords() {
+  // Returns flat array of [data, funcionario, posto, servico, valor, motivo, cobertura, obs, fsId, catKey]
+  const all = [];
+  Object.entries(RECORDS).forEach(([cat, rows]) => {
+    rows.forEach(r => all.push([...r, cat]));
+  });
+  return all;
+}
+
+function histGetFiltered() {
+  const colab   = (document.getElementById('hist-f-colab')?.value || '').trim().toLowerCase();
+  const posto   = (document.getElementById('hist-f-posto')?.value || '').trim().toLowerCase();
+  const motivo  = (document.getElementById('hist-f-motivo')?.value || '');
+  const cat     = (document.getElementById('hist-f-cat')?.value || '');
+  const dataIni = (document.getElementById('hist-f-data-ini')?.value || '');
+  const dataFim = (document.getElementById('hist-f-data-fim')?.value || '');
+  const busca   = (document.getElementById('hist-f-busca')?.value || '').trim().toLowerCase();
+
+  return histGetAllRecords().filter(r => {
+    if (colab   && !r[1]?.toLowerCase().includes(colab))   return false;
+    if (posto   && !r[2]?.toLowerCase().includes(posto))   return false;
+    if (motivo  && r[5] !== motivo)                        return false;
+    if (cat     && r[9] !== cat)                           return false;
+    if (dataIni && r[0] < dataIni)                         return false;
+    if (dataFim && r[0] > dataFim)                         return false;
+    if (busca   && !r.slice(0,8).join(' ').toLowerCase().includes(busca)) return false;
+    return true;
+  });
+}
+
+function histSort(col) {
+  if (histState.sortCol === col) {
+    histState.sortDir *= -1;
+  } else {
+    histState.sortCol = col;
+    histState.sortDir = col === 0 ? -1 : 1;
+  }
+  histState.page = 1;
+  // Update header classes
+  for (let i = 0; i <= 7; i++) {
+    const th = document.getElementById('hth-' + i);
+    if (!th) continue;
+    th.className = i === col ? (histState.sortDir === 1 ? 'asc' : 'desc') : '';
+  }
+  renderHistorico();
+}
+
+function histClearFilters() {
+  ['hist-f-colab','hist-f-posto','hist-f-busca'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['hist-f-motivo','hist-f-cat'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.selectedIndex = 0;
+  });
+  ['hist-f-data-ini','hist-f-data-fim'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  histState.page = 1;
+  renderHistorico();
+}
+
+function renderHistorico() {
+  const rows = histGetFiltered();
+
+  // Sort
+  const col = histState.sortCol;
+  const dir = histState.sortDir;
+  rows.sort((a, b) => {
+    const va = col === 9 ? (HIST_CAT_LABELS[a[9]] || a[9]) : a[col];
+    const vb = col === 9 ? (HIST_CAT_LABELS[b[9]] || b[9]) : b[col];
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+    return String(va || '').localeCompare(String(vb || ''), 'pt-BR') * dir;
+  });
+
+  // KPI strip
+  const totalVal = rows.reduce((s, r) => s + (parseFloat(r[4]) || 0), 0);
+  const uniqColab = new Set(rows.map(r => r[1]).filter(Boolean)).size;
+  const uniqPostos = new Set(rows.map(r => r[2]).filter(Boolean)).size;
+  const kpiTotal = document.getElementById('hist-kpi-total');
+  const kpiValor = document.getElementById('hist-kpi-valor');
+  const kpiColab = document.getElementById('hist-kpi-colab');
+  const kpiPostos = document.getElementById('hist-kpi-postos');
+  if (kpiTotal) kpiTotal.textContent = rows.length.toLocaleString('pt-BR');
+  if (kpiValor) kpiValor.textContent = 'R$' + (totalVal / 1000).toFixed(1) + 'k';
+  if (kpiColab) kpiColab.textContent = uniqColab;
+  if (kpiPostos) kpiPostos.textContent = uniqPostos;
+
+  // Result count
+  const countEl = document.getElementById('hist-result-count');
+  if (countEl) countEl.textContent = rows.length.toLocaleString('pt-BR') + ' registro(s)';
+
+  // Pagination
+  const total = rows.length;
+  const pages = Math.max(1, Math.ceil(total / HIST_PAGE_SIZE));
+  if (histState.page > pages) histState.page = 1;
+  const start = (histState.page - 1) * HIST_PAGE_SIZE;
+  const slice = rows.slice(start, start + HIST_PAGE_SIZE);
+
+  // Motive color map
+  const mc = {
+    'BICO FIXO':'#00e5ff','FÉRIAS':'#a78bfa','APOIO EXTRA (A RECEBER)':'#34d399',
+    'FALTA DE EFETIVO':'#f87171','ATESTADOS':'#fbbf24','TREINAMENTO':'#38bdf8',
+    'REMANEJAMENTO':'#ff6b35','AFASTAMENTO':'#f87171','FALTA S/ JUSTIFICATIVA':'#f87171',
+    'FALTA C/ JUSTIFICATIVA':'#fbbf24','SUSPENSÃO':'#f87171','FOLGA DO VIGIA':'#94a3b8'
+  };
+
+  const tbody = document.getElementById('tbody-historico');
+  if (!tbody) return;
+
+  if (!slice.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:13px">
+      🔍 Nenhum registro encontrado para os filtros selecionados.
+    </td></tr>`;
+  } else {
+    tbody.innerHTML = slice.map(r => {
+      const catKey = r[9];
+      const catColor = HIST_CAT_COLORS[catKey] || '#94a3b8';
+      const catLabel = HIST_CAT_LABELS[catKey] || catKey;
+      const mColor = mc[r[5]] || '#94a3b8';
+      // Find real index for edit/delete
+      const realIdx = RECORDS[catKey] ? RECORDS[catKey].indexOf(r.slice(0, 9)) : -1;
+      const actionsHtml = realIdx >= 0
+        ? `<td style="text-align:center;white-space:nowrap">
+            <button class="btn-edit-row" title="Editar" onclick="openEditModal('${catKey}', ${realIdx})">✏️</button>
+            <button class="btn-delete-row" title="Excluir" onclick="requestDelete('${catKey}', ${realIdx})">🗑️</button>
+           </td>`
+        : `<td></td>`;
+      return `<tr>
+        <td class="date">${r[0]}</td>
+        <td class="name">${r[1] || '—'}</td>
+        <td>${r[2] || '—'}</td>
+        <td style="font-size:12px">${r[3] || '—'}</td>
+        <td class="valor">${r[4] > 0 ? fmtCurrency(r[4]) : '—'}</td>
+        <td><span class="badge" style="background:${mColor}22;color:${mColor};border:1px solid ${mColor}44">${r[5] || '—'}</span></td>
+        <td><span class="badge" style="background:${catColor}22;color:${catColor};border:1px solid ${catColor}44;font-size:10px">${catLabel}</span></td>
+        <td style="font-size:11px;color:var(--text-muted)">${r[6] === 'nan' || !r[6] ? '—' : r[6]}</td>
+        ${actionsHtml}
+      </tr>`;
+    }).join('');
+  }
+
+  // Render pagination
+  const pagEl = document.getElementById('pag-historico');
+  if (!pagEl) return;
+  if (pages <= 1) { pagEl.innerHTML = ''; return; }
+
+  let btns = `<div class="page-info">Página ${histState.page} de ${pages} (${start+1}–${Math.min(start+HIST_PAGE_SIZE,total)} de ${total})</div>
+    <div class="page-btns">
+    <button class="page-btn" onclick="histGoPage(${histState.page-1})" ${histState.page===1?'disabled':''}>‹ Ant</button>`;
+
+  const range = [];
+  for (let i = Math.max(1, histState.page-2); i <= Math.min(pages, histState.page+2); i++) range.push(i);
+  if (range[0] > 1) btns += `<button class="page-btn" onclick="histGoPage(1)">1</button>${range[0]>2?'<span style="padding:6px;color:#64748b">…</span>':''}`;
+  range.forEach(i => btns += `<button class="page-btn${i===histState.page?' active':''}" onclick="histGoPage(${i})">${i}</button>`);
+  if (range[range.length-1] < pages) btns += `${range[range.length-1]<pages-1?'<span style="padding:6px;color:#64748b">…</span>':''}<button class="page-btn" onclick="histGoPage(${pages})">${pages}</button>`;
+  btns += `<button class="page-btn" onclick="histGoPage(${histState.page+1})" ${histState.page===pages?'disabled':''}>Prox ›</button></div>`;
+  pagEl.innerHTML = btns;
+}
+
+function histGoPage(p) {
+  const total = histGetFiltered().length;
+  const pages = Math.max(1, Math.ceil(total / HIST_PAGE_SIZE));
+  histState.page = Math.max(1, Math.min(pages, p));
+  renderHistorico();
+  document.getElementById('page-historico')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Datalist helpers for Histórico filters
+function histShowDatalist(dlId, inputId, type) {
+  buildLists();
+  const input = document.getElementById(inputId);
+  const val = (input?.value || '').trim().toLowerCase();
+  const list = type === 'posto' ? window._DL_POSTOS : window._DL_FUNCS;
+  const filtered = val ? list.filter(x => x.toLowerCase().includes(val)) : list;
+  const dl = document.getElementById(dlId);
+  if (!dl) return;
+  if (!filtered.length) {
+    dl.innerHTML = '<div class="custom-dl-empty">Nenhum resultado</div>';
+  } else {
+    dl.innerHTML = filtered.slice(0, 80).map(item =>
+      `<div class="custom-dl-item" onmousedown="histSelectDL('${inputId}','${dlId}','${item.replace(/'/g,"\\'")}')">` + item + `</div>`
+    ).join('');
+  }
+  dl.style.display = 'block';
+}
+
+function histFilterDatalist(inputId, dlId, val, type) {
+  buildLists();
+  const list = type === 'posto' ? window._DL_POSTOS : window._DL_FUNCS;
+  const filtered = val.trim()
+    ? list.filter(x => x.toLowerCase().includes(val.toLowerCase()))
+    : list;
+  const dl = document.getElementById(dlId);
+  if (!dl) return;
+  if (!filtered.length) {
+    dl.innerHTML = '<div class="custom-dl-empty">Nenhum resultado</div>';
+  } else {
+    dl.innerHTML = filtered.slice(0, 80).map(item =>
+      `<div class="custom-dl-item" onmousedown="histSelectDL('${inputId}','${dlId}','${item.replace(/'/g,"\\'")}')">` + item + `</div>`
+    ).join('');
+  }
+  dl.style.display = 'block';
+  renderHistorico();
+}
+
+function histSelectDL(inputId, dlId, value) {
+  const el = document.getElementById(inputId);
+  if (el) el.value = value;
+  const dl = document.getElementById(dlId);
+  if (dl) dl.style.display = 'none';
+  renderHistorico();
+}
+
+function histHideDatalist(dlId) {
+  setTimeout(() => {
+    const dl = document.getElementById(dlId);
+    if (dl) dl.style.display = 'none';
+  }, 180);
+}
+
+// ==================== EXPORTAÇÕES HISTÓRICO ====================
+
+function histGetExportRows() {
+  // Retorna todos os registros filtrados (sem paginação)
+  const rows = histGetFiltered();
+  const col = histState.sortCol;
+  const dir = histState.sortDir;
+  rows.sort((a, b) => {
+    const va = col === 9 ? (HIST_CAT_LABELS[a[9]] || a[9]) : a[col];
+    const vb = col === 9 ? (HIST_CAT_LABELS[b[9]] || b[9]) : b[col];
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+    return String(va || '').localeCompare(String(vb || ''), 'pt-BR') * dir;
+  });
+  return rows;
+}
+
+function histExportExcel() {
+  const rows = histGetExportRows();
+  if (!rows.length) { showToast('⚠️ Nenhum registro para exportar.', true); return; }
+
+  const headers = ['Data', 'Funcionário', 'Posto', 'Serviço', 'Valor (R$)', 'Motivo', 'Categoria', 'Cobertura', 'Observação'];
+  const data = rows.map(r => [
+    r[0],
+    r[1] || '',
+    r[2] || '',
+    r[3] || '',
+    parseFloat(r[4]) || 0,
+    r[5] || '',
+    HIST_CAT_LABELS[r[9]] || r[9] || '',
+    r[6] === 'nan' ? '' : (r[6] || ''),
+    r[7] === 'nan' ? '' : (r[7] || '')
+  ]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:12},{wch:28},{wch:24},{wch:26},{wch:12},
+    {wch:22},{wch:20},{wch:24},{wch:28}
+  ];
+
+  // Style header row (bold)
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let C = range.s.c; C <= range.e.c; C++) {
+    const cell = ws[XLSX.utils.encode_cell({r:0, c:C})];
+    if (cell) cell.s = { font: { bold: true } };
+  }
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Histórico FTS');
+
+  // Summary sheet
+  const totalVal = rows.reduce((s, r) => s + (parseFloat(r[4]) || 0), 0);
+  const catMap = {};
+  rows.forEach(r => {
+    const label = HIST_CAT_LABELS[r[9]] || r[9];
+    if (!catMap[label]) catMap[label] = { count: 0, total: 0 };
+    catMap[label].count++;
+    catMap[label].total += parseFloat(r[4]) || 0;
+  });
+  const summaryData = [
+    ['Resumo do Filtro Aplicado'],
+    ['Total de Registros', rows.length],
+    ['Valor Total (R$)', totalVal],
+    [''],
+    ['Categoria', 'Qtd', 'Valor (R$)'],
+    ...Object.entries(catMap).map(([cat, d]) => [cat, d.count, d.total])
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(summaryData);
+  ws2['!cols'] = [{wch:24},{wch:10},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Resumo');
+
+  const date = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  XLSX.writeFile(wb, `Historico_FTS_${date}.xlsx`);
+  showToast(`✅ Excel exportado — ${rows.length} registros!`);
+}
+
+function histExportPDF() {
+  const rows = histGetExportRows();
+  if (!rows.length) { showToast('⚠️ Nenhum registro para exportar.', true); return; }
+
+  const { jsPDF } = window.jspdf;
+  const W = 210, H = 297; // A4 portrait mm
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const colabFiltro = document.getElementById('hist-f-colab')?.value?.trim() || '';
+  const dIni        = document.getElementById('hist-f-data-ini')?.value || '';
+  const dFim        = document.getElementById('hist-f-data-fim')?.value || '';
+  const totalVal    = rows.reduce((s, r) => s + (parseFloat(r[4]) || 0), 0);
+  const totalValFmt = 'R$ ' + totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const now         = new Date();
+  const nowFmt      = now.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const nowFull     = now.toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
+
+  // ── helper: draw one full page ──────────────────────────────
+  function drawPageShell(pageNum, totalPages) {
+    // White background
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, W, H, 'F');
+
+    // Top accent bar
+    doc.setFillColor(0, 180, 216);
+    doc.rect(0, 0, W, 8, 'F');
+
+    // Company / system name
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(15, 23, 42);
+    doc.text('MS SEGURANÇA', 14, 20);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Sistema FTS — Folgas e Trocas', 14, 25);
+
+    // Document title box
+    doc.setFillColor(240, 249, 255);
+    doc.setDrawColor(0, 180, 216);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(14, 28, W - 28, 14, 2, 2, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(0, 120, 160);
+    doc.text('RECIBO DE PAGAMENTO DE FOLGAS E TROCAS', W / 2, 36.5, { align: 'center' });
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Página ${pageNum} de ${totalPages}`, W / 2, 40.5, { align: 'center' });
+
+    // Collaborator info box
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(14, 45, W - 28, 22, 2, 2, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('COLABORADOR', 20, 51);
+    doc.text('PERÍODO', 100, 51);
+    doc.text('DATA DE EMISSÃO', 155, 51);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.text(colabFiltro || 'Todos os colaboradores', 20, 58);
+
+    doc.setFontSize(9);
+    const periodoTxt = dIni && dFim
+      ? `${dIni.split('-').reverse().join('/')}  →  ${dFim.split('-').reverse().join('/')}`
+      : dIni ? `A partir de ${dIni.split('-').reverse().join('/')}` : 'Período completo';
+    doc.text(periodoTxt, 100, 58);
+    doc.text(nowFmt, 155, 58);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Total de lançamentos: ${rows.length}`, 20, 63.5);
+
+    // Bottom accent bar
+    doc.setFillColor(0, 180, 216);
+    doc.rect(0, H - 6, W, 6, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`FTS Dashboard  —  Emitido em ${nowFmt}  —  Documento gerado automaticamente`, W / 2, H - 2, { align: 'center' });
+  }
+
+  // ── first pass: render table to get total pages ──────────────
+  // We'll use autoTable's willAddPage to count pages and then redraw
+  let totalPages = 1;
+
+  doc.autoTable({
+    startY: 70,
+    head: [['Data', 'Funcionário', 'Posto', 'Serviço', 'Valor (R$)', 'Motivo', 'Categoria']],
+    body: rows.map(r => [
+      r[0] ? r[0].split('-').reverse().join('/') : '—',
+      r[1] || '—',
+      r[2] || '—',
+      r[3] || '—',
+      r[4] > 0 ? parseFloat(r[4]).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—',
+      r[5] || '—',
+      HIST_CAT_LABELS[r[9]] || r[9] || '—'
+    ]),
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.5,
+      textColor: [30, 41, 59],
+      lineColor: [226, 232, 240],
+      lineWidth: 0.25,
+      cellPadding: 2.8,
+      overflow: 'linebreak'
+    },
+    headStyles: {
+      fillColor: [15, 23, 42],
+      textColor: [0, 180, 216],
+      fontStyle: 'bold',
+      fontSize: 8,
+      cellPadding: 3
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    columnStyles: {
+      0: { cellWidth: 18, halign: 'center' },
+      1: { cellWidth: 40 },
+      2: { cellWidth: 32 },
+      3: { cellWidth: 42 },
+      4: { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [5, 150, 105] },
+      5: { cellWidth: 25 },
+      6: { cellWidth: 25 }
+    },
+    margin: { left: 14, right: 14, bottom: 20 },
+    didDrawPage: (data) => {
+      totalPages = data.pageCount;
+    }
+  });
+
+  // ── second pass: redraw everything cleanly ───────────────────
+  // Reset
+  doc.deletePage(1);
+  // Regenerate
+  for (let p = 0; p < totalPages; p++) {
+    if (p === 0) {
+      // doc already has 0 pages after delete, addPage adds first
+      doc.addPage();
+    } else {
+      doc.addPage();
+    }
+    drawPageShell(p + 1, totalPages);
+  }
+
+  // Render table again on the clean pages
+  doc.setPage(1);
+  doc.autoTable({
+    startY: 70,
+    head: [['Data', 'Funcionário', 'Posto', 'Serviço', 'Valor (R$)', 'Motivo', 'Categoria']],
+    body: rows.map(r => [
+      r[0] ? r[0].split('-').reverse().join('/') : '—',
+      r[1] || '—',
+      r[2] || '—',
+      r[3] || '—',
+      r[4] > 0 ? parseFloat(r[4]).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—',
+      r[5] || '—',
+      HIST_CAT_LABELS[r[9]] || r[9] || '—'
+    ]),
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.5,
+      textColor: [30, 41, 59],
+      lineColor: [226, 232, 240],
+      lineWidth: 0.25,
+      cellPadding: 2.8,
+      overflow: 'linebreak'
+    },
+    headStyles: {
+      fillColor: [15, 23, 42],
+      textColor: [0, 180, 216],
+      fontStyle: 'bold',
+      fontSize: 8,
+      cellPadding: 3
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    columnStyles: {
+      0: { cellWidth: 18, halign: 'center' },
+      1: { cellWidth: 40 },
+      2: { cellWidth: 32 },
+      3: { cellWidth: 42 },
+      4: { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [5, 150, 105] },
+      5: { cellWidth: 25 },
+      6: { cellWidth: 25 }
+    },
+    margin: { left: 14, right: 14, bottom: 20 }
+  });
+
+  // ── last page: total + signature block ───────────────────────
+  const lastPage = doc.internal.getNumberOfPages();
+  doc.setPage(lastPage);
+  const finalY = doc.lastAutoTable.finalY + 6;
+
+  // Total box
+  doc.setFillColor(15, 23, 42);
+  doc.setDrawColor(0, 180, 216);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(14, finalY, W - 28, 14, 2, 2, 'FD');
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(180, 220, 230);
+  doc.text('TOTAL A RECEBER', 20, finalY + 5.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(180, 220, 230);
+  doc.text(`${rows.length} lançamento(s) no período`, 20, finalY + 10.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(52, 211, 153);
+  doc.text(totalValFmt, W - 20, finalY + 9, { align: 'right' });
+
+  // Value in full (extenso) — simple approach
+  function valorExtenso(val) {
+    const reais = Math.floor(val);
+    const cents = Math.round((val - reais) * 100);
+    const unid = ['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez',
+      'onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+    const dez  = ['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+    const cent = ['','cem','duzentos','trezentos','quatrocentos','quinhentos','seiscentos',
+      'setecentos','oitocentos','novecentos'];
+    function grupo(n) {
+      if (n === 0) return '';
+      if (n === 100) return 'cem';
+      let s = '';
+      if (n >= 100) { s += cent[Math.floor(n/100)]; n %= 100; if (n) s += ' e '; }
+      if (n >= 20)  { s += dez[Math.floor(n/10)]; n %= 10; if (n) s += ' e '; }
+      if (n > 0)    { s += unid[n]; }
+      return s;
+    }
+    let txt = '';
+    if (reais >= 1000) {
+      const mil = Math.floor(reais / 1000);
+      txt += grupo(mil) + ' mil';
+      const resto = reais % 1000;
+      if (resto) txt += ' e ' + grupo(resto);
+    } else if (reais > 0) {
+      txt += grupo(reais);
+    }
+    txt += reais === 1 ? ' real' : reais > 1 ? ' reais' : '';
+    if (cents > 0) {
+      if (reais > 0) txt += ' e ';
+      txt += grupo(cents) + (cents === 1 ? ' centavo' : ' centavos');
+    }
+    return txt.charAt(0).toUpperCase() + txt.slice(1);
+  }
+
+  const sigY = finalY + 22;
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  const extensoTxt = `Valor por extenso: ${valorExtenso(totalVal)}`;
+  doc.text(extensoTxt, 14, sigY - 2);
+
+  // Separator line
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(14, sigY + 2, W - 14, sigY + 2);
+
+  // Declaration text
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(51, 65, 85);
+  const declTxt = `Declaro que recebi da empresa MS Segurança a importância de ${totalValFmt} (${valorExtenso(totalVal)}), `
+    + `referente ao pagamento de folgas e trocas (FTS) conforme detalhamento acima.`;
+  const declLines = doc.splitTextToSize(declTxt, W - 28);
+  doc.text(declLines, 14, sigY + 9);
+
+  // Signature area
+  const sigBoxY = sigY + 9 + declLines.length * 4 + 8;
+
+  // Left: collaborator signature
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.5);
+  doc.line(14, sigBoxY + 18, 90, sigBoxY + 18);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.text(colabFiltro || 'Colaborador', 52, sigBoxY + 22, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Assinatura do Colaborador', 52, sigBoxY + 26.5, { align: 'center' });
+
+  // Center: date
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.5);
+  doc.line(105, sigBoxY + 18, 155, sigBoxY + 18);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.text('_____/_____/________', 130, sigBoxY + 15, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Data do Recebimento', 130, sigBoxY + 22, { align: 'center' });
+
+  // Right: company witness
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.5);
+  doc.line(118, sigBoxY + 18, W - 14, sigBoxY + 18);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.text('MS Segurança', (118 + W - 14) / 2, sigBoxY + 22, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Responsável / Testemunha', (118 + W - 14) / 2, sigBoxY + 26.5, { align: 'center' });
+
+  // Stamp area hint
+  doc.setDrawColor(200, 210, 220);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(W - 50, sigBoxY - 2, 36, 22, 2, 2, 'D');
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(6.5);
+  doc.setTextColor(180, 190, 200);
+  doc.text('Carimbo da', W - 32, sigBoxY + 6, { align: 'center' });
+  doc.text('empresa', W - 32, sigBoxY + 10, { align: 'center' });
+
+  const dateFile = now.toLocaleDateString('pt-BR').replace(/\//g, '-');
+  const colabSlug = (colabFiltro || 'geral').replace(/\s+/g, '_').toLowerCase();
+  doc.save(`Recibo_FTS_${colabSlug}_${dateFile}.pdf`);
+  showToast(`✅ Recibo PDF gerado — ${rows.length} lançamentos  |  ${totalValFmt}`);
+}
 
 // ==================== INIT ====================
 window.addEventListener('DOMContentLoaded', () => {
