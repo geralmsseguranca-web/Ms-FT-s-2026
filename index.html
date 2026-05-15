@@ -3693,10 +3693,18 @@ function histExportPDF() {
     // Bottom accent bar
     doc.setFillColor(0, 180, 216);
     doc.rect(0, H - 6, W, 6, 'F');
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6);
     doc.setTextColor(255, 255, 255);
-    doc.text(`FTS Dashboard  —  Emitido em ${nowFmt}  —  Documento gerado automaticamente`, W / 2, H - 2, { align: 'center' });
+    const colabRodape = colabFiltro ? colabFiltro.toUpperCase() : 'TODOS OS COLABORADORES';
+    // Esquerda: nome do colaborador limitado a 1/3 da largura
+    doc.setFont('helvetica', 'bold');
+    doc.text(colabRodape, 14, H - 2, { align: 'left', maxWidth: W / 3 - 10 });
+    // Centro: data de emissão e info
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Emitido em ${nowFmt}  —  Documento gerado automaticamente`, W / 2, H - 2, { align: 'center', maxWidth: W / 3 + 10 });
+    // Direita: MS Segurança
+    doc.setFont('helvetica', 'bold');
+    doc.text('MS Segurança', W - 14, H - 2, { align: 'right', maxWidth: 35 });
   }
 
   // ── first pass: render table to get total pages ──────────────
