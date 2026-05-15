@@ -981,6 +981,194 @@
   @media (max-width: 600px) {
     .cad-grid { grid-template-columns: 1fr; }
   }
+
+  /* ============================================================
+     RESPONSIVE — LAPTOP (max 1200px)
+  ============================================================ */
+  @media (max-width: 1200px) {
+    main { max-width: 100%; padding: 22px 24px; }
+    .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    .kpi-value { font-size: 24px; }
+    .chart-grid-half { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ============================================================
+     RESPONSIVE — TABLET / SMALL LAPTOP (max 900px)
+  ============================================================ */
+  @media (max-width: 900px) {
+    /* Layout */
+    main { padding: 16px 16px; }
+    header { padding: 12px 16px; gap: 10px; flex-wrap: wrap; }
+    .header-right { gap: 8px; flex-wrap: wrap; }
+    .period-badge { font-size: 11px; padding: 5px 10px; }
+    nav { padding: 0 12px; }
+    .nav-tab { padding: 12px 14px; font-size: 12px; }
+
+    /* KPI */
+    .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .kpi-card { padding: 16px 16px; }
+    .kpi-value { font-size: 22px; }
+    .kpi-label { font-size: 10px; }
+    .kpi-sub { font-size: 11px; }
+
+    /* Grids de gráficos */
+    .chart-grid-2,
+    .chart-grid-3,
+    .chart-grid-half,
+    .chart-grid-thirds { grid-template-columns: 1fr; }
+
+    /* Section title */
+    .section-title { font-size: 16px; margin-bottom: 14px; }
+
+    /* Cadastros */
+    .cad-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .cad-tabs { flex-wrap: wrap; width: 100%; }
+    .cad-tab { flex: 1; text-align: center; padding: 9px 12px; font-size: 12px; }
+
+    /* Filter bar */
+    .filter-bar { gap: 8px; }
+    .search-input { font-size: 12px; padding: 8px 12px; }
+    select.search-input { min-width: 140px; }
+
+    /* Action bar */
+    .action-bar { flex-wrap: wrap; gap: 8px; }
+    .btn-add-ft { font-size: 12px; padding: 9px 14px; }
+
+    /* Modal */
+    .modal { padding: 24px 20px; margin: 12px; max-width: calc(100vw - 24px); }
+    .form-grid { grid-template-columns: 1fr; }
+
+    /* Pagination */
+    .pagination { flex-wrap: wrap; gap: 8px; }
+    .page-btn { padding: 5px 10px; font-size: 12px; }
+
+    /* Toast */
+    .toast { right: 12px; bottom: 16px; left: 12px; right: 12px; font-size: 12px; padding: 12px 16px; }
+  }
+
+  /* ============================================================
+     RESPONSIVE — MOBILE (max 600px)
+  ============================================================ */
+  @media (max-width: 600px) {
+    /* Header compacto */
+    header { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
+    .logo-icon { width: 34px; height: 34px; font-size: 14px; border-radius: 8px; }
+    .logo-text h1 { font-size: 15px; }
+    .logo-text span { font-size: 10px; }
+    .header-right { width: 100%; justify-content: space-between; gap: 6px; }
+    .period-badge { font-size: 10px; padding: 4px 8px; }
+    .btn-add-ft { font-size: 11px; padding: 7px 11px; gap: 5px; }
+    #conn-badge { font-size: 10px; padding: 4px 8px; }
+    #pending-count { font-size: 9px; padding: 4px 7px; }
+
+    /* Nav scrollável horizontal */
+    nav { padding: 0 8px; }
+    .nav-tab { padding: 10px 11px; font-size: 11px; }
+
+    /* Main */
+    main { padding: 12px 10px; }
+
+    /* KPIs — 2 colunas no mobile */
+    .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .kpi-card { padding: 14px 12px; border-radius: 12px; }
+    .kpi-value { font-size: 20px; letter-spacing: -0.5px; }
+    .kpi-label { font-size: 9px; margin-bottom: 6px; }
+    .kpi-sub { font-size: 10px; }
+
+    /* Gráficos */
+    .chart-card { padding: 14px 12px; border-radius: 12px; }
+    .chart-title { font-size: 11px; margin-bottom: 12px; }
+    .chart-wrap { height: 180px; }
+    .chart-wrap.tall { height: 240px; }
+    .chart-wrap.xtall { height: 300px; }
+
+    /* Section title */
+    .section-title { font-size: 14px; gap: 8px; margin-bottom: 12px; }
+
+    /* Tables — scroll horizontal */
+    .table-wrap { border-radius: 8px; -webkit-overflow-scrolling: touch; }
+    table { font-size: 12px; }
+    td { padding: 9px 10px; font-size: 12px; }
+    thead th { padding: 10px 10px; font-size: 10px; }
+
+    /* Filter bar — coluna única */
+    .filter-bar { flex-direction: column; gap: 8px; }
+    .search-input { min-width: unset; width: 100%; font-size: 13px; }
+    select.search-input { min-width: unset; width: 100%; }
+    .result-count { padding: 0; }
+
+    /* Action bar */
+    .action-bar { justify-content: stretch; }
+    .action-bar > * { flex: 1; text-align: center; }
+
+    /* Histórico filtros — 1 coluna */
+    .hist-filter-grid {
+      grid-template-columns: 1fr !important;
+    }
+    /* Botões do histórico em coluna */
+    .hist-action-row {
+      flex-direction: column;
+      align-items: stretch !important;
+    }
+    .hist-action-row button { width: 100%; justify-content: center; text-align: center; }
+
+    /* Pagination */
+    .pagination { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .page-btns { flex-wrap: wrap; gap: 4px; }
+    .page-btn { padding: 5px 9px; font-size: 11px; }
+
+    /* Modal */
+    .modal { padding: 18px 14px; margin: 8px; border-radius: 14px; max-height: 95vh; }
+    .modal-title { font-size: 15px; }
+    .form-grid { grid-template-columns: 1fr; gap: 12px; }
+    .form-input, .form-select, .form-textarea { font-size: 14px; padding: 9px 12px; }
+    .modal-footer { flex-wrap: wrap; }
+    .modal-footer > * { flex: 1; text-align: center; }
+
+    /* Cadastros */
+    .cad-grid { grid-template-columns: 1fr; gap: 10px; }
+    .cad-tabs { width: 100%; }
+    .cad-tab { font-size: 11px; padding: 8px 10px; }
+    .cad-action-bar { flex-direction: column; gap: 8px; }
+    .cad-action-bar > * { width: 100%; }
+    .cad-card { padding: 12px 14px; }
+    .cad-name { font-size: 12px; }
+    .cad-meta { font-size: 10px; }
+    .cad-stats { gap: 10px; }
+
+    /* Category list */
+    .category-item { padding: 10px 12px; gap: 10px; }
+    .cat-icon { width: 30px; height: 30px; font-size: 14px; }
+    .cat-name { font-size: 12px; }
+    .cat-count { font-size: 10px; }
+    .cat-total { font-size: 13px; }
+
+    /* Tag cloud */
+    .tag { font-size: 11px; padding: 4px 10px; }
+
+    /* Diagnóstico — botões em coluna */
+    .diag-action-btns {
+      flex-direction: column;
+    }
+    .diag-action-btns .btn-add-ft { width: 100%; justify-content: center; }
+
+    /* Toast */
+    .toast { left: 10px; right: 10px; bottom: 12px; font-size: 11px; padding: 10px 14px; border-radius: 10px; }
+
+    /* Custom datalist */
+    .custom-dl { max-height: 160px; }
+    .custom-dl-item { font-size: 11px; padding: 8px 12px; }
+
+    /* Sync overlay */
+    .sync-msg { font-size: 12px; }
+  }
+
+  /* Telas muito pequenas (iPhone SE, etc.) */
+  @media (max-width: 360px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    .nav-tab { padding: 9px 9px; font-size: 10px; }
+    .kpi-value { font-size: 18px; }
+  }
 </style>
 
 <!-- ===== FIREBASE SDK ===== -->
@@ -1719,7 +1907,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <!-- Action buttons -->
   <div class="chart-card" style="margin-bottom:20px">
     <div class="chart-title"><span class="dot"></span>Ações de Sincronização</div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+    <div class="diag-action-btns" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
       <button class="btn-add-ft" onclick="diagReloadFirestore()" style="background:linear-gradient(135deg,#34d399,#059669)">
         📥 Recarregar do Firestore
       </button>
@@ -1799,7 +1987,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <!-- Filters -->
   <div class="chart-card" style="margin-bottom:20px">
     <div class="chart-title"><span class="dot" style="background:var(--accent3);box-shadow:0 0 6px var(--accent3)"></span>Filtros</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px">
+    <div class="hist-filter-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px">
 
       <!-- Colaborador -->
       <div style="display:flex;flex-direction:column;gap:6px">
@@ -1877,7 +2065,7 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
     <!-- Busca livre + botão limpar -->
-    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <div class="hist-action-row" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       <input type="text" class="search-input" id="hist-f-busca" placeholder="🔍 Busca livre (nome, posto, serviço, obs...)"
              oninput="renderHistorico()" style="flex:1;min-width:220px" />
       <button onclick="histClearFilters()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text-muted);padding:9px 18px;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap"
