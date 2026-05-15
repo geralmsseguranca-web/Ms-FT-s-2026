@@ -495,6 +495,38 @@
     font-size: 13px;
   }
 
+  /* SYNC OVERLAY */
+  #sync-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(11,15,26,0.75);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  #sync-overlay.show { opacity: 1; pointer-events: all; }
+  .sync-spinner {
+    width: 48px; height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .sync-msg {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--surface); }
@@ -952,7 +984,7 @@
 <script type="module">
 // Firebase config
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc, setDoc, deleteDoc, doc, onSnapshot, enableIndexedDbPersistence, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, setDoc, deleteDoc, doc, onSnapshot, enableIndexedDbPersistence, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBcRnkP5mH7wc1QR2k7Pd3adrw18P6ADbk",
@@ -977,7 +1009,7 @@ enableIndexedDbPersistence(db).catch(err => {
 
 // Expose to global scope for non-module scripts
 window.firebaseDB = db;
-window.firebaseFns = { collection, getDocs, addDoc, setDoc, deleteDoc, doc, onSnapshot, serverTimestamp };
+window.firebaseFns = { collection, getDocs, addDoc, setDoc, deleteDoc, doc, onSnapshot, serverTimestamp, writeBatch };
 
 // Pending queue for offline operations
 window.pendingQueue = JSON.parse(localStorage.getItem('fts_pending_queue') || '[]');
@@ -1051,18 +1083,68 @@ async function executeFirebaseOp(op) {
 // ===== MAIN FIREBASE OPERATIONS =====
 
 // Load all records from Firestore on first launch
-window.loadFromFirestore = async function() {
-  diagLog('📥 Carregando dados do Firestore...');
-  updateDiagStatus('Carregando dados...');
+window.loadFromFirestore = async function(force) {
+  diagLog('📥 Verificando Firestore...');
+  updateDiagStatus('Verificando...');
+  const localTotal = Object.values(RECORDS).flat().length;
   try {
     const { collection, getDocs } = window.firebaseFns;
+    if (!window.firebaseDB || !window.firebaseFns) {
+      diagLog('⚠️ Firebase ainda não inicializado. Usando dados locais.');
+      updateDiagStatus('Firebase não pronto — dados locais');
+      return;
+    }
     const snap = await getDocs(collection(window.firebaseDB, 'fts_records'));
+
     if (snap.empty) {
-      diagLog('📭 Firestore vazio — usando dados locais (seed). Enviando seed...');
+      diagLog('📭 Firestore vazio — enviando seed com ' + localTotal + ' registros...');
+      updateDiagStatus('Firestore vazio — fazendo seed...');
+      window.showSyncOverlay && window.showSyncOverlay('Primeira sincronização — enviando dados...');
       await window.seedFirestore();
       return;
     }
-    // Reset RECORDS
+
+    const fsTotal = snap.size;
+    diagLog('📊 Firestore: ' + fsTotal + ' registros | Local: ' + localTotal + ' registros');
+
+    // PROTECTION: only replace local data if Firestore has full dataset
+    // Check that ALL 7 categories have records in Firestore (not just one)
+    const cats7 = ['FTS FIXAS','FTS FERIAS','FTS APOIO EXTRA','FTS ATESTADOS e FALTAS','FTS VAGAS EM ABERTO','REMANEJAMENTOS','FTS TREINAMENTO'];
+    const fsCatCounts = {};
+    snap.forEach(d => {
+      const cat = d.data().categoria;
+      fsCatCounts[cat] = (fsCatCounts[cat] || 0) + 1;
+    });
+    const fsFilledCats = cats7.filter(c => (fsCatCounts[c] || 0) > 0).length;
+    const fsIncomplete = !force && (fsTotal < localTotal * 0.9 || fsFilledCats < cats7.length);
+
+    if (fsIncomplete) {
+      diagLog('⚠️ Firestore incompleto (' + fsTotal + ' registros, ' + fsFilledCats + '/7 categorias). ' +
+              'Mantendo dados locais. Use "Re-seed" no diagnóstico para corrigir.');
+      updateDiagStatus('⚠️ Firestore incompleto — dados locais mantidos');
+      // Still attach Firestore IDs to local records where we can match them
+      const fsMap = {};
+      snap.forEach(d => {
+        const dd = d.data();
+        const key = [dd.data, dd.funcionario, dd.posto, dd.categoria].join('|');
+        fsMap[key] = d.id;
+      });
+      let matched = 0;
+      Object.entries(RECORDS).forEach(([cat, rows]) => {
+        rows.forEach(row => {
+          const key = [row[0], row[1], row[2], cat].join('|');
+          if (fsMap[key] && !row[8]) { row[8] = fsMap[key]; matched++; }
+        });
+      });
+      diagLog('🔗 ' + matched + ' registros locais vinculados a IDs do Firestore.');
+      updateConnectionUI(window.isOnline);
+      // Trigger re-seed automatically since Firestore is missing data
+      diagLog('🌱 Auto-seed: reenviando dados locais para o Firestore...');
+      await window.seedFirestore();
+      return;
+    }
+
+    // Safe to replace — Firestore has full data
     const cats = ['FTS FIXAS','FTS FERIAS','FTS APOIO EXTRA','FTS ATESTADOS e FALTAS','FTS VAGAS EM ABERTO','REMANEJAMENTOS','FTS TREINAMENTO'];
     cats.forEach(c => RECORDS[c] = []);
     let count = 0;
@@ -1070,41 +1152,86 @@ window.loadFromFirestore = async function() {
       const data = d.data();
       const cat = data.categoria;
       if (RECORDS[cat]) {
-        RECORDS[cat].push([data.data, data.funcionario, data.posto, data.servico, parseFloat(data.valor)||0, data.motivo, data.cobertura||'nan', data.obs||'nan', d.id]);
+        RECORDS[cat].push([data.data, data.funcionario, data.posto, data.servico,
+          parseFloat(data.valor)||0, data.motivo, data.cobertura||'nan', data.obs||'nan', d.id]);
         count++;
       }
     });
-    diagLog(`✅ ${count} registros carregados do Firestore.`);
-    updateDiagStatus(`${count} registros ativos`);
+    diagLog('✅ ' + count + ' registros carregados do Firestore.');
+    updateDiagStatus(count + ' registros ativos (Firestore)');
     window.syncAll();
+    window.hideSyncOverlay();
   } catch(e) {
-    diagLog(`⚠️ Erro ao carregar: ${e.message}. Usando dados locais.`);
-    updateDiagStatus('Modo local (erro Firestore)');
+    diagLog('⚠️ Erro ao carregar: ' + e.message + '. Usando dados locais.');
+    updateDiagStatus('Erro Firestore — dados locais mantidos');
+    window.hideSyncOverlay();
   }
   updateConnectionUI(window.isOnline);
 };
 
 // Seed Firestore with existing RECORDS
 window.seedFirestore = async function() {
-  diagLog('🌱 Enviando dados iniciais ao Firestore...');
-  updateDiagStatus('Enviando seed...');
+  diagLog('🌱 Iniciando seed em lotes (pode levar ~30s)...');
+  updateDiagStatus('Seed em progresso...');
+  window.showSyncOverlay && window.showSyncOverlay('Enviando dados para o Firebase...');
   try {
-    const { collection, addDoc, serverTimestamp } = window.firebaseFns;
+    const { collection, addDoc, getDocs, deleteDoc, doc, writeBatch, serverTimestamp } = window.firebaseFns;
+    const db = window.firebaseDB;
+
+    // Step 1: Delete existing records in batches
+    diagLog('🗑️ Limpando registros antigos do Firestore...');
+    const existingSnap = await getDocs(collection(db, 'fts_records'));
+    if (!existingSnap.empty) {
+      let delBatch = writeBatch(db);
+      let delCount = 0;
+      existingSnap.forEach(d => {
+        delBatch.delete(doc(db, 'fts_records', d.id));
+        delCount++;
+        if (delCount % 400 === 0) {
+          delBatch.commit();
+          delBatch = writeBatch(db);
+        }
+      });
+      await delBatch.commit();
+      diagLog('🗑️ ' + existingSnap.size + ' registros antigos removidos.');
+    }
+
+    // Step 2: Write all records in batches of 400
+    const allRows = [];
+    Object.entries(RECORDS).forEach(([cat, rows]) => {
+      rows.forEach(row => allRows.push({ cat, row }));
+    });
+
     let sent = 0;
-    for (const [cat, rows] of Object.entries(RECORDS)) {
-      for (const row of rows) {
-        await addDoc(collection(window.firebaseDB, 'fts_records'), {
-          data: row[0], funcionario: row[1], posto: row[2], servico: row[3],
-          valor: row[4], motivo: row[5], cobertura: row[6], obs: row[7],
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
+      const chunk = allRows.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      chunk.forEach(({ cat, row }) => {
+        const ref = doc(collection(db, 'fts_records'));
+        batch.set(ref, {
+          data: row[0]||'', funcionario: row[1]||'', posto: row[2]||'',
+          servico: row[3]||'', valor: parseFloat(row[4])||0,
+          motivo: row[5]||'', cobertura: row[6]||'nan', obs: row[7]||'nan',
           categoria: cat, createdAt: serverTimestamp()
         });
         sent++;
-      }
+      });
+      await batch.commit();
+      const pct = Math.round(sent / allRows.length * 100);
+      diagLog('📤 Seed: ' + sent + '/' + allRows.length + ' (' + pct + '%)');
+      updateDiagStatus('Seed: ' + sent + '/' + allRows.length);
     }
-    diagLog(`✅ Seed concluído: ${sent} registros enviados.`);
-    updateDiagStatus(`Seed: ${sent} registros`);
+
+    diagLog('✅ Seed concluído: ' + sent + ' registros enviados em lotes.');
+    updateDiagStatus('Seed completo: ' + sent + ' registros');
+    // Reload to attach IDs
+    await window.loadFromFirestore(true);
   } catch(e) {
-    diagLog(`❌ Erro no seed: ${e.message}`);
+    diagLog('❌ Erro no seed: ' + e.message);
+    updateDiagStatus('Erro no seed: ' + e.message.slice(0,40));
+    console.error('[FTS seed error]', e);
+    window.hideSyncOverlay && window.hideSyncOverlay();
   }
 };
 
@@ -1187,9 +1314,22 @@ function updateDiagStatus(msg) {
   if (el) el.textContent = msg;
 }
 
+function showSyncOverlay(msg) {
+  const el = document.getElementById('sync-overlay');
+  const msgEl = document.getElementById('sync-overlay-msg');
+  if (el) el.classList.add('show');
+  if (msgEl && msg) msgEl.textContent = msg;
+}
+
+function hideSyncOverlay() {
+  const el = document.getElementById('sync-overlay');
+  if (el) el.classList.remove('show');
+}
+
 // Start loading when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   updateConnectionUI(navigator.onLine);
+  showSyncOverlay('Verificando sincronização...');
   setTimeout(() => window.loadFromFirestore(), 500);
   // Flush any pending ops on load if online
   if (navigator.onLine) setTimeout(flushPendingQueue, 1500);
@@ -1197,6 +1337,12 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </head>
 <body>
+
+<!-- SYNC OVERLAY -->
+<div id="sync-overlay">
+  <div class="sync-spinner"></div>
+  <div class="sync-msg" id="sync-overlay-msg">Sincronizando com Firebase...</div>
+</div>
 
 <header>
   <div class="logo-area">
@@ -2853,7 +2999,7 @@ function renderDiagQueue() {
 async function diagReloadFirestore() {
   if (typeof window.loadFromFirestore === 'function') {
     window.diagLog('🔄 Recarregando dados do Firestore...');
-    await window.loadFromFirestore();
+    await window.loadFromFirestore(true);
     updateDiagCounters();
   }
 }
@@ -2951,6 +3097,16 @@ async function diagCheckFirestore() {
 window.syncAll = syncAll;
 window.updateKPICards = updateKPICards;
 window.showToast = showToast;
+window.showSyncOverlay = function(msg) {
+  const el = document.getElementById('sync-overlay');
+  const msgEl = document.getElementById('sync-overlay-msg');
+  if (el) el.classList.add('show');
+  if (msgEl && msg) msgEl.textContent = msg;
+};
+window.hideSyncOverlay = function() {
+  const el = document.getElementById('sync-overlay');
+  if (el) el.classList.remove('show');
+};
 
 // ==================== INIT ====================
 window.addEventListener('DOMContentLoaded', () => {
