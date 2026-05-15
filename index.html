@@ -1003,11 +1003,13 @@ window.addEventListener('offline', () => {
 function updateConnectionUI(online) {
   const badge = document.getElementById('conn-badge');
   const pending = document.getElementById('pending-count');
+  const diagConn = document.getElementById('diag-conn-value');
   if (badge) {
     badge.textContent = online ? '🟢 Online' : '🔴 Offline';
     badge.style.color = online ? 'var(--success)' : 'var(--danger)';
     badge.style.borderColor = online ? 'rgba(52,211,153,0.4)' : 'rgba(248,113,113,0.4)';
   }
+  if (diagConn) diagConn.textContent = online ? '🟢 Online' : '🔴 Offline';
   if (pending) {
     const n = window.pendingQueue.length;
     pending.textContent = n > 0 ? `⏳ ${n} pendente(s)` : '';
@@ -1723,6 +1725,38 @@ document.addEventListener('DOMContentLoaded', () => {
 <div class="toast" id="toast"></div>
 
 <script>
+// ==================== FIREBASE SAFE FALLBACKS ====================
+// These get overridden by the Firebase module script once it loads.
+// They prevent "function not defined" errors if Firebase loads slowly.
+window.firebaseDB = null;
+window.firebaseFns = null;
+window.pendingQueue = JSON.parse(localStorage.getItem('fts_pending_queue') || '[]');
+window.isOnline = navigator.onLine;
+window.diagLog = function(msg) {
+  const ts = new Date().toLocaleTimeString('pt-BR');
+  const logEl = document.getElementById('diag-log');
+  if (logEl) {
+    const entry = document.createElement('div');
+    entry.style.cssText = 'border-bottom:1px solid rgba(30,45,69,0.5);padding:5px 0;font-size:11px;color:#94a3b8;';
+    entry.innerHTML = '<span style="color:#64748b;margin-right:8px">' + ts + '</span>' + msg;
+    logEl.prepend(entry);
+    if (logEl.children.length > 100) logEl.removeChild(logEl.lastChild);
+  }
+  console.log('[FTS]', ts, msg);
+};
+window.saveFTToFirestore = async function(row, catKey, existingId) {
+  console.log('[FTS] saveFTToFirestore: Firebase not ready yet, storing locally only');
+  return existingId || null;
+};
+window.deleteFTFromFirestore = async function(id) {
+  console.log('[FTS] deleteFTFromFirestore: Firebase not ready yet');
+};
+window.loadFromFirestore = async function() {
+  console.log('[FTS] loadFromFirestore: Firebase not ready yet');
+};
+window.seedFirestore = async function() {
+  console.log('[FTS] seedFirestore: Firebase not ready yet');
+};
 // ==================== DATA ====================
 const DATA = {
   summary: {
@@ -1775,6 +1809,12 @@ function showPage(id, btn) {
       window.cadastrosBuilt = true;
     }
     renderCadColab();
+  }
+
+  // Diagnostics tab
+  if (id === 'diagnostico') {
+    if (typeof updateDiagCounters === 'function') updateDiagCounters();
+    if (typeof renderDiagQueue === 'function') renderDiagQueue();
   }
 }
 
@@ -2903,15 +2943,14 @@ async function diagCheckFirestore() {
   }
 }
 
-// Override showPage to update diag counters when diagnostics tab is opened
-const _origShowPage = showPage;
-function showPage(id, btn) {
-  _origShowPage(id, btn);
-  if (id === 'diagnostico') {
-    updateDiagCounters();
-    renderDiagQueue();
-  }
-}
+// showPage diagnostics handled inline
+
+// ==================== EXPOSE TO MODULE SCOPE ====================
+// The Firebase module (type="module") runs in isolated scope.
+// Functions called from the module must be exposed on window.
+window.syncAll = syncAll;
+window.updateKPICards = updateKPICards;
+window.showToast = showToast;
 
 // ==================== INIT ====================
 window.addEventListener('DOMContentLoaded', () => {
@@ -2935,4 +2974,3 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
