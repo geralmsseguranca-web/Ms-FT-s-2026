@@ -1157,6 +1157,10 @@ window.loadFromFirestore = async function(force) {
         count++;
       }
     });
+    // Sort each category by date descending (most recent first)
+    cats.forEach(c => {
+      RECORDS[c].sort((a, b) => (b[0] || '').localeCompare(a[0] || ''));
+    });
     diagLog('✅ ' + count + ' registros carregados do Firestore.');
     updateDiagStatus(count + ' registros ativos (Firestore)');
     window.syncAll();
@@ -2535,6 +2539,12 @@ function confirmDelete() {
 
 // ---- SYNC ALL ----
 function syncAll() {
+  // Re-sort all categories by date descending (most recent first)
+  const _cats = ['FTS FIXAS','FTS FERIAS','FTS APOIO EXTRA','FTS ATESTADOS e FALTAS','FTS VAGAS EM ABERTO','REMANEJAMENTOS','FTS TREINAMENTO'];
+  _cats.forEach(c => {
+    if (RECORDS[c]) RECORDS[c].sort((a, b) => (b[0] || '').localeCompare(a[0] || ''));
+  });
+
   // Rebuild DATA.summary from RECORDS
   Object.keys(DATA.summary).forEach(key => {
     const rows = RECORDS[key] || [];
