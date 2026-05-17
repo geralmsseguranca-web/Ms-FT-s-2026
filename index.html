@@ -1561,6 +1561,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <button class="nav-tab" onclick="showPage('analytics', this)">📈 Analytics</button>
   <button class="nav-tab" onclick="showPage('cadastros', this)">👥 Cadastros</button>
   <button class="nav-tab" onclick="showPage('diagnostico', this)">🔧 Diagnóstico</button>
+  <button class="nav-tab" id="tab-lixeira" onclick="showPage('lixeira', this)">🗑️ Lixeira <span id="lixeira-badge" style="display:none;background:rgba(248,113,113,0.2);color:var(--danger);border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px">0</span></button>
 </nav>
 
 <main>
@@ -1977,6 +1978,70 @@ document.addEventListener('DOMContentLoaded', () => {
   <div class="pagination" id="pag-historico"></div>
 </div>
 
+<!-- LIXEIRA PAGE -->
+<div id="page-lixeira" class="page">
+  <div class="section-title">🗑️ Lixeira — Lançamentos Excluídos</div>
+
+  <div class="kpi-grid" style="margin-bottom:24px">
+    <div class="kpi-card" style="--card-accent:#f87171">
+      <div class="kpi-label">Itens na Lixeira</div>
+      <div class="kpi-value" id="lixeira-kpi-count">0</div>
+      <div class="kpi-sub">aguardando exclusão permanente</div>
+    </div>
+    <div class="kpi-card" style="--card-accent:#fbbf24">
+      <div class="kpi-label">Valor Total</div>
+      <div class="kpi-value" id="lixeira-kpi-valor">R$0</div>
+      <div class="kpi-sub">soma dos excluídos</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div class="chart-title" style="margin-bottom:0"><span class="dot" style="background:var(--danger);box-shadow:0 0 6px var(--danger)"></span>Itens Excluídos</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="lixeiraRestoreAll()" style="background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.35);border-radius:10px;color:var(--success);padding:8px 16px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">♻️ Restaurar Todos</button>
+        <button onclick="lixeiraEmptyConfirm()" style="background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.35);border-radius:10px;color:var(--danger);padding:8px 16px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">🔥 Esvaziar Lixeira</button>
+      </div>
+    </div>
+    <div id="lixeira-empty" style="text-align:center;padding:48px 0;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:13px">
+      ✅ Lixeira vazia — nenhum lançamento excluído.
+    </div>
+    <div class="table-wrap" id="lixeira-table-wrap" style="display:none">
+      <table>
+        <thead><tr>
+          <th>Data Exclusão</th>
+          <th>Data FT</th>
+          <th>Funcionário</th>
+          <th>Posto</th>
+          <th>Serviço</th>
+          <th>Valor</th>
+          <th>Motivo</th>
+          <th>Categoria</th>
+          <th style="width:100px;text-align:center">Ações</th>
+        </tr></thead>
+        <tbody id="tbody-lixeira"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ESVAZIAR LIXEIRA -->
+<div class="modal-overlay" id="lixeiraEmptyModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title" style="color:var(--danger)">🔥 Esvaziar Lixeira</div>
+      <button class="modal-close" onclick="document.getElementById('lixeiraEmptyModal').classList.remove('open')">×</button>
+    </div>
+    <p style="color:var(--text-dim);font-size:14px;margin-bottom:24px;line-height:1.6">
+      Tem certeza? Esta ação apaga <strong style="color:var(--danger)">permanentemente</strong> todos os itens da lixeira. Não será possível recuperá-los.
+    </p>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="document.getElementById('lixeiraEmptyModal').classList.remove('open')">Cancelar</button>
+      <button class="btn-save" style="background:linear-gradient(135deg,var(--danger),#e05252);box-shadow:0 0 16px rgba(248,113,113,0.3)" onclick="lixeiraEmpty()">🔥 Esvaziar</button>
+    </div>
+  </div>
+</div>
+
 </main>
 
 <!-- MODAL DUPLICIDADE -->
@@ -2224,6 +2289,11 @@ function showPage(id, btn) {
   if (id === 'diagnostico') {
     if (typeof updateDiagCounters === 'function') updateDiagCounters();
     if (typeof renderDiagQueue === 'function') renderDiagQueue();
+  }
+
+  // Lixeira tab
+  if (id === 'lixeira') {
+    renderLixeira();
   }
 }
 
@@ -2774,6 +2844,9 @@ document.getElementById('ftModal').addEventListener('click', e => {
 document.getElementById('deleteModal').addEventListener('click', e => {
   if (e.target === document.getElementById('deleteModal')) closeDeleteModal();
 });
+document.getElementById('lixeiraEmptyModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('lixeiraEmptyModal')) document.getElementById('lixeiraEmptyModal').classList.remove('open');
+});
 
 // ---- DUPLICATE STATE ----
 let _pendingFTPayload = null; // stores form data while dup modal is open
@@ -2903,10 +2976,27 @@ function persistFT(payload) {
   syncAll();
 }
 
-// ---- DELETE ----
+// ---- DELETE (vai para lixeira) ----
 function requestDelete(catKey, rowIndex) {
   deleteState = { catKey, rowIndex };
   document.getElementById('deleteModal').classList.add('open');
+}
+
+// ---- LIXEIRA (trash) ----
+// Each entry: { row, catKey, deletedAt }
+let LIXEIRA = JSON.parse(localStorage.getItem('fts_lixeira') || '[]');
+
+function saveLixeiraLocal() {
+  try { localStorage.setItem('fts_lixeira', JSON.stringify(LIXEIRA)); } catch(e) {}
+}
+
+function updateLixeiraBadge() {
+  const n = LIXEIRA.length;
+  const badge = document.getElementById('lixeira-badge');
+  if (badge) {
+    badge.textContent = n;
+    badge.style.display = n > 0 ? 'inline' : 'none';
+  }
 }
 
 function confirmDelete() {
@@ -2915,23 +3005,132 @@ function confirmDelete() {
   const row = RECORDS[catKey][rowIndex];
   if (!row) { closeDeleteModal(); return; }
 
-  // Get Firestore ID — may be in row[8] if record came from Firestore
-  const firestoreId = row[8] || null;
+  // Move to lixeira instead of permanent delete
+  LIXEIRA.unshift({ row: [...row], catKey, deletedAt: new Date().toISOString() });
+  saveLixeiraLocal();
+  updateLixeiraBadge();
 
-  // Remove from local RECORDS first
+  // Remove from local RECORDS
   RECORDS[catKey].splice(rowIndex, 1);
   closeDeleteModal();
   syncAll();
-  showToast('🗑️ FT excluída e sistema atualizado.');
+  showToast('🗑️ FT movida para a Lixeira.');
 
+  // Also remove from Firestore (the restore will re-add if needed)
+  const firestoreId = row[8] || null;
   if (firestoreId) {
-    // Has ID — delete directly
     window.deleteFTFromFirestore(firestoreId);
   } else {
-    // No ID — find in Firestore by matching fields and delete
     window.deleteFTFromFirestoreByMatch(row, catKey);
   }
   updateDiagCounters();
+
+  // Re-render lixeira if visible
+  if (document.getElementById('page-lixeira')?.classList.contains('active')) {
+    renderLixeira();
+  }
+}
+
+function renderLixeira() {
+  const kpiCount = document.getElementById('lixeira-kpi-count');
+  const kpiValor = document.getElementById('lixeira-kpi-valor');
+  const emptyEl  = document.getElementById('lixeira-empty');
+  const wrapEl   = document.getElementById('lixeira-table-wrap');
+  const tbody    = document.getElementById('tbody-lixeira');
+
+  const n = LIXEIRA.length;
+  const totalVal = LIXEIRA.reduce((s, e) => s + (parseFloat(e.row[4]) || 0), 0);
+
+  if (kpiCount) kpiCount.textContent = n;
+  if (kpiValor) kpiValor.textContent = fmtCurrency(totalVal);
+  updateLixeiraBadge();
+
+  if (!n) {
+    if (emptyEl)  emptyEl.style.display  = '';
+    if (wrapEl)   wrapEl.style.display   = 'none';
+    return;
+  }
+  if (emptyEl)  emptyEl.style.display  = 'none';
+  if (wrapEl)   wrapEl.style.display   = '';
+
+  const catLabels = {
+    'FTS FIXAS':'FTs Fixas','FTS FERIAS':'Férias','FTS APOIO EXTRA':'Apoio Extra',
+    'FTS ATESTADOS e FALTAS':'Atestados/Faltas','FTS VAGAS EM ABERTO':'Vagas em Aberto',
+    'REMANEJAMENTOS':'Remanejamentos','FTS TREINAMENTO':'Treinamento'
+  };
+
+  tbody.innerHTML = LIXEIRA.map((entry, idx) => {
+    const r = entry.row;
+    const delFmt = new Date(entry.deletedAt).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const dataFT = (r[0] || '').split('-').reverse().join('/');
+    const val = parseFloat(r[4]) || 0;
+    return `<tr>
+      <td class="date" style="font-size:11px">${delFmt}</td>
+      <td class="date">${dataFT}</td>
+      <td class="name">${r[1] || '—'}</td>
+      <td>${r[2] || '—'}</td>
+      <td>${r[3] || '—'}</td>
+      <td class="valor">${val > 0 ? fmtCurrency(val) : '—'}</td>
+      <td>${r[5] || '—'}</td>
+      <td><span class="badge" style="background:rgba(0,229,255,0.1);color:var(--accent);border:1px solid rgba(0,229,255,0.2);font-size:10px">${catLabels[entry.catKey] || entry.catKey}</span></td>
+      <td style="text-align:center;white-space:nowrap">
+        <button title="Restaurar" onclick="lixeiraRestore(${idx})" style="background:none;border:none;cursor:pointer;padding:4px 7px;border-radius:6px;font-size:14px;opacity:0.7;transition:all .15s" onmouseover="this.style.opacity=1;this.style.background='rgba(52,211,153,0.15)'" onmouseout="this.style.opacity=0.7;this.style.background='none'">♻️</button>
+        <button title="Apagar permanentemente" onclick="lixeiraDeletePerm(${idx})" style="background:none;border:none;cursor:pointer;padding:4px 7px;border-radius:6px;font-size:14px;opacity:0.7;transition:all .15s" onmouseover="this.style.opacity=1;this.style.background='rgba(248,113,113,0.15)'" onmouseout="this.style.opacity=0.7;this.style.background='none'">❌</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function lixeiraRestore(idx) {
+  const entry = LIXEIRA[idx];
+  if (!entry) return;
+  // Put back into RECORDS
+  const { row, catKey } = entry;
+  if (!RECORDS[catKey]) RECORDS[catKey] = [];
+  RECORDS[catKey].unshift([...row]);
+  LIXEIRA.splice(idx, 1);
+  saveLixeiraLocal();
+  syncAll();
+  renderLixeira();
+  showToast('♻️ FT restaurada com sucesso!');
+  // Re-save to Firestore
+  window.saveFTToFirestore([...row], catKey, null);
+  updateDiagCounters();
+}
+
+function lixeiraRestoreAll() {
+  if (!LIXEIRA.length) return;
+  LIXEIRA.forEach(entry => {
+    if (!RECORDS[entry.catKey]) RECORDS[entry.catKey] = [];
+    RECORDS[entry.catKey].unshift([...entry.row]);
+    window.saveFTToFirestore([...entry.row], entry.catKey, null);
+  });
+  LIXEIRA = [];
+  saveLixeiraLocal();
+  syncAll();
+  renderLixeira();
+  showToast('♻️ Todos os itens restaurados!');
+  updateDiagCounters();
+}
+
+function lixeiraDeletePerm(idx) {
+  LIXEIRA.splice(idx, 1);
+  saveLixeiraLocal();
+  renderLixeira();
+  showToast('🔥 Item apagado permanentemente.');
+}
+
+function lixeiraEmptyConfirm() {
+  if (!LIXEIRA.length) { showToast('✅ Lixeira já está vazia.'); return; }
+  document.getElementById('lixeiraEmptyModal').classList.add('open');
+}
+
+function lixeiraEmpty() {
+  LIXEIRA = [];
+  saveLixeiraLocal();
+  document.getElementById('lixeiraEmptyModal').classList.remove('open');
+  renderLixeira();
+  showToast('🔥 Lixeira esvaziada permanentemente.');
 }
 
 // ---- SYNC ALL ----
@@ -4369,6 +4568,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // Tables for individual pages removed — all data accessed via Histórico with filters
   // Init diagnostics counters
   setTimeout(updateDiagCounters, 2000);
+
+  // Init lixeira badge
+  updateLixeiraBadge();
 });
 </script>
 </body>
