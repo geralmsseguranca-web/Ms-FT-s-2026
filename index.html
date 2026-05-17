@@ -1593,13 +1593,13 @@ document.addEventListener('DOMContentLoaded', () => {
   <div class="kpi-grid">
     <div class="kpi-card" style="--card-accent:#00e5ff">
       <div class="kpi-label">Total de FTs</div>
-      <div class="kpi-value glow-text">1.077</div>
+      <div class="kpi-value glow-text" id="ov-kpi-total">1.077</div>
       <div class="kpi-sub">registros no período</div>
     </div>
     <div class="kpi-card" style="--card-accent:#34d399">
       <div class="kpi-label">Valor Total</div>
-      <div class="kpi-value">R$166.6k</div>
-      <div class="kpi-sub">R$ 166.646,00</div>
+      <div class="kpi-value" id="ov-kpi-valor-abbr">R$166.6k</div>
+      <div class="kpi-sub" id="ov-kpi-valor-full">R$ 166.646,00</div>
     </div>
     <div class="kpi-card" style="--card-accent:#a78bfa">
       <div class="kpi-label">Categorias</div>
@@ -1608,18 +1608,18 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
     <div class="kpi-card" style="--card-accent:#fbbf24">
       <div class="kpi-label">Maior Categoria</div>
-      <div class="kpi-value">664</div>
-      <div class="kpi-sub">FTs Fixas (61.7%)</div>
+      <div class="kpi-value" id="ov-kpi-maior-cat">664</div>
+      <div class="kpi-sub" id="ov-kpi-maior-cat-sub">FTs Fixas (61.7%)</div>
     </div>
     <div class="kpi-card" style="--card-accent:#ff6b35">
       <div class="kpi-label">Valor Médio/FT</div>
-      <div class="kpi-value">R$155</div>
+      <div class="kpi-value" id="ov-kpi-avg">R$155</div>
       <div class="kpi-sub">por ocorrência</div>
     </div>
     <div class="kpi-card" style="--card-accent:#f87171">
       <div class="kpi-label">Vagas em Aberto</div>
-      <div class="kpi-value">54</div>
-      <div class="kpi-sub">R$ 8.736,00 em aberto</div>
+      <div class="kpi-value" id="ov-kpi-vagas">54</div>
+      <div class="kpi-sub" id="ov-kpi-vagas-sub">R$ 8.736,00 em aberto</div>
     </div>
   </div>
 
@@ -3240,17 +3240,24 @@ function syncAll() {
 }
 
 function updateKPICards() {
-  const total = Object.values(DATA.summary).reduce((a,b) => a + b.count, 0);
+  const total    = Object.values(DATA.summary).reduce((a,b) => a + b.count, 0);
   const totalVal = Object.values(DATA.summary).reduce((a,b) => a + b.total, 0);
-  const avgVal = total > 0 ? Math.round(totalVal / total) : 0;
+  const avgVal   = total > 0 ? Math.round(totalVal / total) : 0;
+  const vagasVal = DATA.summary['FTS VAGAS EM ABERTO']?.total || 0;
+  const fixasCount = DATA.summary['FTS FIXAS']?.count || 0;
+  const fixasPct = total > 0 ? (fixasCount / total * 100).toFixed(1) : '0.0';
 
-  // Overview KPIs (by class pattern - update text content)
-  const overviewKPIs = document.querySelectorAll('#page-overview .kpi-value');
-  if (overviewKPIs[0]) overviewKPIs[0].textContent = total.toLocaleString('pt-BR');
-  if (overviewKPIs[1]) overviewKPIs[1].textContent = 'R$' + (totalVal/1000).toFixed(1) + 'k';
-  if (overviewKPIs[3]) overviewKPIs[3].textContent = DATA.summary['FTS FIXAS'].count;
-  if (overviewKPIs[4]) overviewKPIs[4].textContent = 'R$' + avgVal;
-  if (overviewKPIs[5]) overviewKPIs[5].textContent = DATA.summary['FTS VAGAS EM ABERTO'].count;
+  // Overview KPIs — by ID (safe, no index fragility)
+  const el = id => document.getElementById(id);
+
+  if (el('ov-kpi-total'))       el('ov-kpi-total').textContent       = total.toLocaleString('pt-BR');
+  if (el('ov-kpi-valor-abbr'))  el('ov-kpi-valor-abbr').textContent  = 'R$' + (totalVal / 1000).toFixed(1) + 'k';
+  if (el('ov-kpi-valor-full'))  el('ov-kpi-valor-full').textContent  = 'R$ ' + totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  if (el('ov-kpi-maior-cat'))   el('ov-kpi-maior-cat').textContent   = fixasCount.toLocaleString('pt-BR');
+  if (el('ov-kpi-maior-cat-sub')) el('ov-kpi-maior-cat-sub').textContent = 'FTs Fixas (' + fixasPct + '%)';
+  if (el('ov-kpi-avg'))         el('ov-kpi-avg').textContent         = 'R$' + avgVal.toLocaleString('pt-BR');
+  if (el('ov-kpi-vagas'))       el('ov-kpi-vagas').textContent       = DATA.summary['FTS VAGAS EM ABERTO']?.count || 0;
+  if (el('ov-kpi-vagas-sub'))   el('ov-kpi-vagas-sub').textContent   = 'R$ ' + vagasVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) + ' em aberto';
 
   // Per-page KPIs
   const pageKPIs = {
