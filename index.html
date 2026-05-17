@@ -594,6 +594,9 @@
   }
   .modal-overlay.open { display: flex; }
 
+  /* dupModal must sit above ftModal when both are open */
+  #dupModal { z-index: 1100; }
+
   .modal {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -976,129 +979,6 @@
     color: var(--warning);
     font-family: 'DM Mono', monospace;
     margin-bottom: 12px;
-  }
-
-  /* ===== DUPLICATE INLINE BALLOON ===== */
-  #dup-balloon {
-    display: none;
-    background: linear-gradient(135deg, #1a1400 0%, #1c1508 100%);
-    border: 1.5px solid var(--warning);
-    border-radius: 14px;
-    padding: 14px 16px;
-    margin-bottom: 16px;
-    position: relative;
-    box-shadow: 0 4px 24px rgba(251,191,36,0.18), 0 0 0 1px rgba(251,191,36,0.08);
-    animation: balloonSlideIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
-  }
-  #dup-balloon::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--warning), transparent);
-    border-radius: 14px 14px 0 0;
-  }
-  @keyframes balloonSlideIn {
-    from { opacity: 0; transform: translateY(-10px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0)    scale(1);    }
-  }
-  .dup-balloon-header {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    margin-bottom: 10px;
-  }
-  .dup-balloon-icon {
-    font-size: 18px;
-    animation: warnPulse 1.4s ease-in-out infinite;
-    flex-shrink: 0;
-  }
-  @keyframes warnPulse {
-    0%,100% { opacity: 1; }
-    50%      { opacity: 0.45; }
-  }
-  .dup-balloon-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--warning);
-    font-family: 'Syne', sans-serif;
-    letter-spacing: 0.1px;
-    flex: 1;
-  }
-  .dup-balloon-close {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 16px;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 6px;
-    line-height: 1;
-    transition: color 0.15s, background 0.15s;
-    flex-shrink: 0;
-  }
-  .dup-balloon-close:hover { color: var(--danger); background: rgba(248,113,113,0.1); }
-  .dup-balloon-body {
-    font-size: 12px;
-    font-family: 'DM Mono', monospace;
-    color: var(--text-dim);
-    line-height: 1.7;
-    background: rgba(0,0,0,0.25);
-    border: 1px solid rgba(251,191,36,0.15);
-    border-radius: 9px;
-    padding: 10px 13px;
-    margin-bottom: 12px;
-  }
-  .dup-balloon-body strong { color: var(--text); }
-  .dup-balloon-body .dup-val { color: var(--accent4); }
-  .dup-balloon-body .dup-cat { color: var(--accent3); }
-  .dup-balloon-body .dup-date { color: var(--warning); }
-  .dup-balloon-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-  }
-  .dup-btn-edit {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(0,229,255,0.1);
-    border: 1.5px solid var(--accent);
-    border-radius: 9px;
-    color: var(--accent);
-    padding: 7px 16px;
-    font-family: 'Syne', sans-serif;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.18s;
-    box-shadow: 0 0 10px rgba(0,229,255,0.12);
-  }
-  .dup-btn-edit:hover { background: rgba(0,229,255,0.2); box-shadow: 0 0 18px rgba(0,229,255,0.25); transform: translateY(-1px); }
-  .dup-btn-ignore {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: transparent;
-    border: 1px solid rgba(251,191,36,0.35);
-    border-radius: 9px;
-    color: var(--warning);
-    padding: 7px 14px;
-    font-family: 'Syne', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.18s;
-    opacity: 0.85;
-  }
-  .dup-btn-ignore:hover { background: rgba(251,191,36,0.1); opacity: 1; }
-
-  /* Field highlight when duplicate detected */
-  .field-dup-warn {
-    border-color: var(--warning) !important;
-    box-shadow: 0 0 0 3px rgba(251,191,36,0.18) !important;
-    background: rgba(251,191,36,0.04) !important;
   }
 
   @media (max-width: 600px) {
@@ -2101,48 +1981,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <!-- MODAL DUPLICIDADE -->
 <div class="modal-overlay" id="dupModal">
-  <div class="modal" style="max-width:500px">
+  <div class="modal" style="max-width:480px">
     <div class="modal-header">
       <div class="modal-title" style="color:var(--warning);display:flex;align-items:center;gap:10px">
-        <span style="font-size:22px;animation:warnPulse 1.4s ease-in-out infinite">⚠️</span>
-        Lançamento Duplicado
+        <span style="font-size:22px">⚠️</span> Lançamento Duplicado
       </div>
       <button class="modal-close" onclick="closeDupModal()">×</button>
     </div>
-
-    <!-- Registro que o usuário tentou criar -->
-    <div style="background:rgba(251,191,36,0.07);border:1.5px solid rgba(251,191,36,0.28);border-radius:13px;padding:16px 18px;margin-bottom:14px">
-      <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--warning);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Tentativa detectada</div>
-      <p style="color:var(--text-dim);font-size:13px;line-height:1.75;margin:0">
-        Já existe um lançamento para
-        <strong style="color:var(--text)" id="dup-info-func"></strong>
-        no posto <strong style="color:var(--text)" id="dup-info-posto"></strong>
-        em <strong style="color:var(--warning)" id="dup-info-data"></strong>
-        com o serviço <strong style="color:var(--text)" id="dup-info-servico"></strong>.
+    <div style="margin-bottom:20px">
+      <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);border-radius:12px;padding:16px;margin-bottom:16px">
+        <p style="color:var(--text-dim);font-size:13px;line-height:1.7;margin-bottom:12px">
+          Já existe um lançamento para <strong style="color:var(--text)" id="dup-info-func"></strong> no posto <strong style="color:var(--text)" id="dup-info-posto"></strong> em <strong style="color:var(--text)" id="dup-info-data"></strong> com o serviço <strong style="color:var(--text)" id="dup-info-servico"></strong>.
+        </p>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted)">
+          <span style="color:var(--accent4);margin-right:8px">●</span>Lançamento existente:
+          <span id="dup-info-existente" style="color:var(--text-dim);margin-left:4px"></span>
+        </div>
+      </div>
+      <p style="color:var(--text-muted);font-size:12px;font-family:'DM Mono',monospace">
+        Lançamento acidental? Clique em <strong style="color:var(--accent)">✏️ Corrigir este lançamento</strong> para voltar ao formulário e ajustar os dados (colaborador, horário, motivo etc.), ou em <strong style="color:var(--warning)">Salvar mesmo assim</strong> se for realmente um novo registro.
       </p>
     </div>
-
-    <!-- Detalhes do registro existente -->
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px">
-      <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:11px">📋 Registro já salvo</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;font-size:12px;font-family:'DM Mono',monospace">
-        <div><span style="color:var(--text-muted)">Data:</span>&nbsp;<span style="color:var(--warning)" id="dup-ex-data">—</span></div>
-        <div><span style="color:var(--text-muted)">Valor:</span>&nbsp;<span style="color:var(--accent4)" id="dup-ex-valor">—</span></div>
-        <div><span style="color:var(--text-muted)">Serviço:</span>&nbsp;<span style="color:var(--text)" id="dup-ex-servico">—</span></div>
-        <div><span style="color:var(--text-muted)">Motivo:</span>&nbsp;<span style="color:var(--text-dim)" id="dup-ex-motivo">—</span></div>
-        <div style="grid-column:1/-1"><span style="color:var(--text-muted)">Categoria:</span>&nbsp;<span style="color:var(--accent3)" id="dup-ex-cat">—</span></div>
-      </div>
-    </div>
-
-    <p style="color:var(--text-muted);font-size:12px;font-family:'DM Mono',monospace;line-height:1.65;margin-bottom:6px">
-      Foi uma tentativa acidental? Clique em <strong style="color:var(--accent)">✏️ Editar existente</strong> para corrigir o registro já salvo.<br>
-      Se for realmente um novo lançamento diferente, use <strong style="color:var(--warning)">Salvar mesmo assim</strong>.
-    </p>
-
-    <div class="modal-footer" style="margin-top:18px">
+    <div class="modal-footer">
       <button class="btn-cancel" onclick="closeDupModal()">Cancelar</button>
-      <button class="dup-btn-edit" style="padding:10px 20px;font-size:13px" onclick="editDupExisting()">✏️ Editar existente</button>
-      <button style="background:rgba(251,191,36,0.12);border:1.5px solid rgba(251,191,36,0.45);border-radius:10px;color:var(--warning);padding:10px 18px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s" onclick="saveFTForced()">⚡ Salvar mesmo assim</button>
+      <button style="background:var(--surface2);border:1px solid var(--accent);border-radius:10px;color:var(--accent);padding:10px 20px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s" onclick="editCurrentForm()">✏️ Corrigir este lançamento</button>
+      <button style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.4);border-radius:10px;color:var(--warning);padding:10px 20px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s" onclick="saveFTForced()">Salvar mesmo assim</button>
     </div>
   </div>
 </div>
@@ -2154,32 +2017,16 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="modal-title" id="modalTitle">➕ Nova FT</div>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
-
-    <!-- ⬇ BALÃO DE DUPLICIDADE em tempo real ⬇ -->
-    <div id="dup-balloon">
-      <div class="dup-balloon-header">
-        <span class="dup-balloon-icon">⚠️</span>
-        <span class="dup-balloon-title">Lançamento duplicado detectado!</span>
-        <button class="dup-balloon-close" onclick="dismissDupBalloon()" title="Ignorar aviso">×</button>
-      </div>
-      <div class="dup-balloon-body" id="dup-balloon-body">—</div>
-      <div class="dup-balloon-actions">
-        <button class="dup-btn-ignore" onclick="dismissDupBalloon()">Continuar assim mesmo</button>
-        <button class="dup-btn-edit"   onclick="editFromBalloon()">✏️ Editar existente</button>
-      </div>
-    </div>
-
     <div class="form-grid">
       <div class="form-group">
         <label class="form-label">Data</label>
-        <input type="date" class="form-input" id="fData"
-               onchange="checkDupLive()" />
+        <input type="date" class="form-input" id="fData" />
       </div>
       <div class="form-group">
         <label class="form-label">Funcionário</label>
         <div style="position:relative">
           <input type="text" class="form-input" id="fFunc" placeholder="Digite ou escolha..." autocomplete="off"
-                 oninput="filterDatalist('fFunc','dl-func',this.value);checkDupLive()"
+                 oninput="filterDatalist('fFunc','dl-func',this.value)"
                  onfocus="showDatalist('dl-func','fFunc')" onblur="hideDatalist('dl-func')" />
           <div id="dl-func" class="custom-dl" style="display:none"></div>
         </div>
@@ -2188,7 +2035,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <label class="form-label">Posto</label>
         <div style="position:relative">
           <input type="text" class="form-input" id="fPosto" placeholder="Digite ou escolha..." autocomplete="off"
-                 oninput="filterDatalist('fPosto','dl-posto',this.value);checkDupLive()"
+                 oninput="filterDatalist('fPosto','dl-posto',this.value)"
                  onfocus="showDatalist('dl-posto','fPosto')" onblur="hideDatalist('dl-posto')" />
           <div id="dl-posto" class="custom-dl" style="display:none"></div>
         </div>
@@ -2197,7 +2044,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <label class="form-label">Serviço</label>
         <div style="position:relative">
           <input type="text" class="form-input" id="fServico" placeholder="Digite ou escolha o serviço..." autocomplete="off"
-                 oninput="filterServDatalist(this.value);checkDupLive()"
+                 oninput="filterServDatalist(this.value)"
                  onfocus="showServDatalist(this.value)"
                  onblur="hideServDatalist()"
                  onkeydown="servDatalistKey(event)" />
@@ -2875,10 +2722,6 @@ let deleteState = null;
 // ---- MODAL OPEN/CLOSE ----
 function openAddModal(catKey) {
   editState = null;
-  _dupBalloonDismissed = false;
-  _dupLiveMatch = null;
-  hideDupBalloon();
-  clearDupFieldHighlights();
   buildLists();
   document.getElementById('modalTitle').textContent = '➕ Nova FT';
   document.getElementById('fData').value = new Date().toISOString().split('T')[0];
@@ -2897,10 +2740,6 @@ function openAddModal(catKey) {
 
 function openEditModal(catKey, rowIndex) {
   editState = { catKey, rowIndex };
-  _dupBalloonDismissed = false;
-  _dupLiveMatch = null;
-  hideDupBalloon();
-  clearDupFieldHighlights();
   buildLists();
   const row = RECORDS[catKey][rowIndex];
   document.getElementById('modalTitle').textContent = '✏️ Editar FT';
@@ -2918,10 +2757,6 @@ function openEditModal(catKey, rowIndex) {
 
 function closeModal() {
   document.getElementById('ftModal').classList.remove('open');
-  hideDupBalloon();
-  clearDupFieldHighlights();
-  _dupBalloonDismissed = false;
-  _dupLiveMatch = null;
   editState = null;
 }
 
@@ -2942,120 +2777,25 @@ document.getElementById('deleteModal').addEventListener('click', e => {
 });
 
 // ---- DUPLICATE STATE ----
-let _pendingFTPayload  = null;  // form data held while dupModal is open
-let _dupMatch          = null;  // { catKey, rowIndex } of existing record (dupModal)
-let _dupLiveMatch      = null;  // { catKey, rowIndex } of existing record (live balloon)
-let _dupBalloonDismissed = false; // user clicked "Continuar assim mesmo"
+let _pendingFTPayload = null; // stores form data while dup modal is open
+let _dupMatch = null;         // { catKey, rowIndex } of the existing record
 
-// ── Helpers: show / hide inline balloon ──────────────────────────
-function showDupBalloon(msg) {
-  const b = document.getElementById('dup-balloon');
-  document.getElementById('dup-balloon-body').innerHTML = msg;
-  b.style.display = 'block';
-}
-function hideDupBalloon() {
-  const b = document.getElementById('dup-balloon');
-  if (b) b.style.display = 'none';
-}
-function clearDupFieldHighlights() {
-  ['fData','fFunc','fPosto','fServico'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('field-dup-warn');
-  });
-}
-function applyDupFieldHighlights(fields) {
-  clearDupFieldHighlights();
-  fields.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.add('field-dup-warn');
-  });
-}
-
-// ── Live duplicate check (fires on every keystroke / date change) ─
-function checkDupLive() {
-  if (editState) return;          // edits are always ok
-  if (_dupBalloonDismissed) return; // user chose to continue anyway
-
-  const norm = s => (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
-  const data    = document.getElementById('fData').value;
-  const func    = norm(document.getElementById('fFunc').value);
-  const posto   = norm(document.getElementById('fPosto').value);
-  const servico = norm(document.getElementById('fServico').value);
-
-  // Need at least data + func OR data + posto to start checking
-  if (!data || (!func && !posto)) { hideDupBalloon(); clearDupFieldHighlights(); return; }
-
-  let found = null;
-  outer: for (const [ck, rows] of Object.entries(RECORDS)) {
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i];
-      const rDate    = r[0] || '';
-      const rFunc    = norm(r[1]);
-      const rPosto   = norm(r[2]);
-      const rServico = norm(r[3]);
-
-      // Match on: same date + same func + same posto
-      // (service is optional — warn even if service differs, to cover partial input)
-      if (rDate === data && rFunc === func && rPosto === posto) {
-        // Extra precision: if both sides have a service, only match when services also match
-        if (servico && rServico && rServico !== servico) continue;
-        found = { catKey: ck, rowIndex: i, row: r };
-        break outer;
-      }
-    }
-  }
-
-  if (found) {
-    _dupLiveMatch = { catKey: found.catKey, rowIndex: found.rowIndex };
-    const r = found.row;
-    const dataFmt = data.split('-').reverse().join('/');
-    const valor   = 'R$ ' + parseFloat(r[4] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-    showDupBalloon(
-      `<strong>${func || '—'}</strong> &mdash; ${posto || '—'}<br>` +
-      `Data: <span class="dup-date">${dataFmt}</span>&nbsp;&nbsp;|&nbsp;&nbsp;` +
-      `Serviço: <strong>${r[3] || '—'}</strong><br>` +
-      `Valor: <span class="dup-val">${valor}</span>&nbsp;&nbsp;|&nbsp;&nbsp;` +
-      `Motivo: ${r[5] || '—'}<br>` +
-      `Categoria: <span class="dup-cat">${found.catKey}</span>`
-    );
-    applyDupFieldHighlights(['fData','fFunc','fPosto']);
-  } else {
-    _dupLiveMatch = null;
-    hideDupBalloon();
-    clearDupFieldHighlights();
-  }
-}
-
-// ── Called by "Continuar assim mesmo" button in the balloon ──────
-function dismissDupBalloon() {
-  _dupBalloonDismissed = true;
-  hideDupBalloon();
-  clearDupFieldHighlights();
-}
-
-// ── Called by "✏️ Editar existente" button in the balloon ────────
-function editFromBalloon() {
-  if (!_dupLiveMatch) return;
-  const { catKey, rowIndex } = _dupLiveMatch;
-  closeModal();
-  openEditModal(catKey, rowIndex);
-}
-
-// ── dupModal helpers ──────────────────────────────────────────────
 function closeDupModal() {
   document.getElementById('dupModal').classList.remove('open');
   _pendingFTPayload = null;
   _dupMatch = null;
 }
 
-function editDupExisting() {
-  const match = _dupMatch;
-  closeDupModal();
-  closeModal();
-  if (match) openEditModal(match.catKey, match.rowIndex);
+function editCurrentForm() {
+  // Close only dupModal — ftModal stays open so user can fix the form being filled
+  document.getElementById('dupModal').classList.remove('open');
+  _pendingFTPayload = null;
+  _dupMatch = null;
+  // ftModal remains open; user corrects the fields (func, posto, data, servico…)
 }
 
 function saveFTForced() {
+  // User confirmed: save anyway despite duplicate
   closeDupModal();
   if (_pendingFTPayload) persistFT(_pendingFTPayload);
 }
@@ -3080,7 +2820,7 @@ function saveFT() {
 
   const payload = { data, func, posto, servico, valor, motivo, catKey, cob, obs };
 
-  // ── Duplicate check on save (only new records) ──
+  // ── Duplicate check (only on new records, not edits) ──
   if (!editState) {
     const norm = s => (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
     let dupFound = null;
@@ -3100,23 +2840,19 @@ function saveFT() {
     }
 
     if (dupFound) {
+      // Store for later
       _pendingFTPayload = payload;
       _dupMatch = { catKey: dupFound.catKey, rowIndex: dupFound.rowIndex };
 
-      // Fill dupModal fields
+      // Fill dup modal info
       const r = dupFound.row;
       const dataFmt = data.split('-').reverse().join('/');
-      const valorFmt = 'R$ ' + parseFloat(r[4] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-
       document.getElementById('dup-info-func').textContent    = func;
       document.getElementById('dup-info-posto').textContent   = posto;
       document.getElementById('dup-info-data').textContent    = dataFmt;
       document.getElementById('dup-info-servico').textContent = servico || '(sem serviço)';
-      document.getElementById('dup-ex-data').textContent      = dataFmt;
-      document.getElementById('dup-ex-valor').textContent     = valorFmt;
-      document.getElementById('dup-ex-servico').textContent   = r[3] || '—';
-      document.getElementById('dup-ex-motivo').textContent    = r[5] || '—';
-      document.getElementById('dup-ex-cat').textContent       = dupFound.catKey;
+      document.getElementById('dup-info-existente').textContent =
+        `${dataFmt} • ${r[3] || '—'} • Motivo: ${r[5] || '—'} • Valor: R$ ${parseFloat(r[4] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
       document.getElementById('dupModal').classList.add('open');
       return;
