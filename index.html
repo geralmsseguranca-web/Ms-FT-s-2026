@@ -1304,13 +1304,34 @@ window.loadFromFirestore = async function(force) {
     const fsTotal = snap.size;
     diagLog('📊 Firestore: ' + fsTotal + ' registros — carregando...');
 
+    // Build a fingerprint set from LIXEIRA so Firebase items in the trash are excluded
+    const norm = s => (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    const lixeiraKeys = new Set(
+      (window.LIXEIRA || []).map(e =>
+        [e.catKey, e.row[0], norm(e.row[1]), norm(e.row[2]), norm(e.row[3])].join('|')
+      )
+    );
+
     const cats = ['FTS FIXAS','FTS FERIAS','FTS APOIO EXTRA','FTS ATESTADOS e FALTAS','FTS VAGAS EM ABERTO','REMANEJAMENTOS','FTS TREINAMENTO'];
     cats.forEach(c => RECORDS[c] = []);
     let count = 0;
+    let skipped = 0;
     snap.forEach(d => {
       const data = d.data();
       const cat = data.categoria;
       if (RECORDS[cat]) {
+        // Skip if this record is in the lixeira (user deleted it locally)
+        const key = [cat, data.data, norm(data.funcionario), norm(data.posto), norm(data.servico)].join('|');
+        if (lixeiraKeys.has(key)) {
+          // Schedule async deletion from Firestore so it stays gone
+          skipped++;
+          if (window.firebaseDB && window.firebaseFns) {
+            window.firebaseFns.deleteDoc(
+              window.firebaseFns.doc(window.firebaseDB, 'fts_records', d.id)
+            ).catch(() => {});
+          }
+          return;
+        }
         RECORDS[cat].push([
           data.data, data.funcionario, data.posto, data.servico,
           parseFloat(data.valor)||0, data.motivo,
@@ -1319,6 +1340,7 @@ window.loadFromFirestore = async function(force) {
         count++;
       }
     });
+    if (skipped > 0) diagLog('🗑️ ' + skipped + ' registro(s) ignorados (estão na lixeira).');
     cats.forEach(c => {
       RECORDS[c].sort((a, b) => (b[0] || '').localeCompare(a[0] || ''));
     });
@@ -2198,6 +2220,12 @@ window.firebaseDB = null;
 window.firebaseFns = null;
 window.pendingQueue = JSON.parse(localStorage.getItem('fts_pending_queue') || '[]');
 window.isOnline = navigator.onLine;
+
+// ==================== LIXEIRA — initialised here so Firebase module can read it ====================
+var LIXEIRA = (function() {
+  try { return JSON.parse(localStorage.getItem('fts_lixeira') || '[]'); } catch(e) { return []; }
+})();
+window.LIXEIRA = LIXEIRA; // also expose as global reference
 window.diagLog = function(msg) {
   const ts = new Date().toLocaleTimeString('pt-BR');
   const logEl = document.getElementById('diag-log');
@@ -2984,10 +3012,10 @@ function requestDelete(catKey, rowIndex) {
 
 // ---- LIXEIRA (trash) ----
 // Each entry: { row, catKey, deletedAt }
-let LIXEIRA = JSON.parse(localStorage.getItem('fts_lixeira') || '[]');
+// LIXEIRA is already initialised at the top of this script and exposed as window.LIXEIRA
 
 function saveLixeiraLocal() {
-  try { localStorage.setItem('fts_lixeira', JSON.stringify(LIXEIRA)); } catch(e) {}
+  try { localStorage.setItem('fts_lixeira', JSON.stringify(LIXEIRA)); window.LIXEIRA = LIXEIRA; } catch(e) {}
 }
 
 function updateLixeiraBadge() {
@@ -3005,18 +3033,19 @@ function confirmDelete() {
   const row = RECORDS[catKey][rowIndex];
   if (!row) { closeDeleteModal(); return; }
 
-  // Move to lixeira instead of permanent delete
+  // Move to lixeira FIRST — before any async ops
   LIXEIRA.unshift({ row: [...row], catKey, deletedAt: new Date().toISOString() });
+  window.LIXEIRA = LIXEIRA;  // keep global in sync for Firebase module
   saveLixeiraLocal();
   updateLixeiraBadge();
 
-  // Remove from local RECORDS
+  // Remove from local RECORDS immediately
   RECORDS[catKey].splice(rowIndex, 1);
   closeDeleteModal();
   syncAll();
   showToast('🗑️ FT movida para a Lixeira.');
 
-  // Also remove from Firestore (the restore will re-add if needed)
+  // Delete from Firestore — use ID when available (faster), fallback to field match
   const firestoreId = row[8] || null;
   if (firestoreId) {
     window.deleteFTFromFirestore(firestoreId);
@@ -3106,6 +3135,7 @@ function lixeiraRestoreAll() {
     window.saveFTToFirestore([...entry.row], entry.catKey, null);
   });
   LIXEIRA = [];
+  window.LIXEIRA = LIXEIRA;
   saveLixeiraLocal();
   syncAll();
   renderLixeira();
@@ -3127,6 +3157,7 @@ function lixeiraEmptyConfirm() {
 
 function lixeiraEmpty() {
   LIXEIRA = [];
+  window.LIXEIRA = LIXEIRA;
   saveLixeiraLocal();
   document.getElementById('lixeiraEmptyModal').classList.remove('open');
   renderLixeira();
