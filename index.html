@@ -4236,10 +4236,12 @@ function histExportPDF() {
   });
 
   // ── second pass: redraw everything cleanly ───────────────────
+  // Add +1 to totalPages to account for possible signature overflow page
   doc.deletePage(1);
-  for (let p = 0; p < totalPages; p++) {
+  const pagesNeeded = totalPages + 1; // allocate one extra; unused page removed below
+  for (let p = 0; p < pagesNeeded; p++) {
     doc.addPage();
-    drawPageShell(p + 1, totalPages);
+    drawPageShell(p + 1, totalPages); // header/footer labels keep original count
   }
 
   // Render table again on the clean pages
@@ -4292,25 +4294,38 @@ function histExportPDF() {
   doc.setPage(lastPage);
   const finalY = doc.lastAutoTable.finalY + 6;
 
+  // Calculate how much vertical space the full signature block needs (mm)
+  // total box (14) + extenso gap (8) + separator+decl (≈18) + sigBox lines (30) + stamp (24) + safe margin (10)
+  const SIG_BLOCK_HEIGHT = 104;
+  const BOTTOM_SAFE = H - 18; // 18mm footer area
+
+  // If signature block won't fit on current page, start a new page
+  let blockStartY = finalY;
+  if (finalY + SIG_BLOCK_HEIGHT > BOTTOM_SAFE) {
+    doc.addPage();
+    drawPageShell(doc.internal.getNumberOfPages(), doc.internal.getNumberOfPages());
+    blockStartY = 20; // top margin on new page
+  }
+
   // Total box
   doc.setFillColor(15, 23, 42);
   doc.setDrawColor(0, 180, 216);
   doc.setLineWidth(0.5);
-  doc.roundedRect(14, finalY, W - 28, 14, 2, 2, 'FD');
+  doc.roundedRect(14, blockStartY, W - 28, 14, 2, 2, 'FD');
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(180, 220, 230);
-  doc.text('TOTAL A RECEBER', 20, finalY + 5.5);
+  doc.text('TOTAL A RECEBER', 20, blockStartY + 5.5);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(180, 220, 230);
-  doc.text(`${rows.length} lançamento(s) no período`, 20, finalY + 10.5);
+  doc.text(`${rows.length} lançamento(s) no período`, 20, blockStartY + 10.5);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.setTextColor(52, 211, 153);
-  doc.text(totalValFmt, W - 20, finalY + 9, { align: 'right' });
+  doc.text(totalValFmt, W - 20, blockStartY + 9, { align: 'right' });
 
   // Value in full (extenso) — simple approach
   function valorExtenso(val) {
@@ -4347,7 +4362,7 @@ function histExportPDF() {
     return txt.charAt(0).toUpperCase() + txt.slice(1);
   }
 
-  const sigY = finalY + 22;
+  const sigY = blockStartY + 22;
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
@@ -4422,6 +4437,22 @@ function histExportPDF() {
 
   const dateFile = now.toLocaleDateString('pt-BR').replace(/\//g, '-');
   const colabSlug = (colabFiltro || 'geral').replace(/\s+/g, '_').toLowerCase();
+
+  // Remove the pre-allocated extra page if the signature block fit on the table's last page
+  // (i.e. no addPage was called in the sig-block logic above)
+  const finalPageCount = doc.internal.getNumberOfPages();
+  if (finalPageCount > totalPages + 1) {
+    // More pages than expected — something unexpected, leave as-is
+  } else if (finalPageCount === totalPages + 1) {
+    // Extra page was actually used for the sig block — keep it, update its shell
+    doc.setPage(finalPageCount);
+    drawPageShell(finalPageCount, finalPageCount);
+  } else {
+    // finalPageCount === totalPages: sig block fit on last table page
+    // Remove the blank extra page that was pre-allocated
+    doc.deletePage(pagesNeeded);
+  }
+
   doc.save(`Recibo_FTS_${colabSlug}_${dateFile}.pdf`);
   showToast(`✅ Recibo PDF gerado — ${rows.length} lançamentos  |  ${totalValFmt}`);
 }
