@@ -1559,17 +1559,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <nav>
   <button class="nav-tab active" onclick="showPage('overview', this)">📊 Visão Geral</button>
-  <button class="nav-tab" onclick="showPage('fixas', this)">🔒 FTs Fixas</button>
-  <button class="nav-tab" onclick="showPage('ferias', this)">🏖️ Férias</button>
-  <button class="nav-tab" onclick="showPage('apoio', this)">⚡ Apoio Extra</button>
-  <button class="nav-tab" onclick="showPage('atestados', this)">🏥 Atestados/Faltas</button>
-  <button class="nav-tab" onclick="showPage('vagas', this)">🚨 Vagas em Aberto</button>
-  <button class="nav-tab" onclick="showPage('remanejamentos', this)">🔄 Remanejamentos</button>
-  <button class="nav-tab" onclick="showPage('treinamento', this)">🎓 Treinamento</button>
-  <button class="nav-tab" onclick="showPage('analytics', this)">📈 Analytics</button>
   <button class="nav-tab" onclick="showPage('historico', this)">🗂️ Histórico</button>
-  <button class="nav-tab" onclick="showPage('cadastros', this)" style="border-bottom-color:transparent">👥 Cadastros</button>
-  <button class="nav-tab" onclick="showPage('diagnostico', this)" style="border-bottom-color:transparent">🔧 Diagnóstico</button>
+  <button class="nav-tab" onclick="showPage('analytics', this)">📈 Analytics</button>
+  <button class="nav-tab" onclick="showPage('cadastros', this)">👥 Cadastros</button>
+  <button class="nav-tab" onclick="showPage('diagnostico', this)">🔧 Diagnóstico</button>
 </nav>
 
 <main>
@@ -1636,141 +1629,6 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>
   </div>
-</div>
-
-<!-- FTS FIXAS PAGE -->
-<div id="page-fixas" class="page">
-  <div class="section-title">🔒 FTs Fixas — Bico Fixo</div>
-  <div class="kpi-grid">
-    <div class="kpi-card" style="--card-accent:#00e5ff">
-      <div class="kpi-label">Total de Registros</div>
-      <div class="kpi-value">664</div>
-      <div class="kpi-sub">ocorrências</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#34d399">
-      <div class="kpi-label">Valor Total</div>
-      <div class="kpi-value">R$103.4k</div>
-      <div class="kpi-sub">R$ 103.405,00</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#a78bfa">
-      <div class="kpi-label">% do Total</div>
-      <div class="kpi-value">62.1%</div>
-      <div class="kpi-sub">do valor geral</div>
-    </div>
-  </div>
-  <div id="table-fixas"></div>
-</div>
-
-<!-- FERIAS PAGE -->
-<div id="page-ferias" class="page">
-  <div class="section-title">🏖️ FTs de Férias</div>
-  <div class="kpi-grid">
-    <div class="kpi-card" style="--card-accent:#00e5ff">
-      <div class="kpi-label">Total de Registros</div>
-      <div class="kpi-value">165</div><div class="kpi-sub">ocorrências</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#34d399">
-      <div class="kpi-label">Valor Total</div>
-      <div class="kpi-value">R$24.7k</div><div class="kpi-sub">R$ 24.690,00</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#fbbf24">
-      <div class="kpi-label">% do Total</div>
-      <div class="kpi-value">14.8%</div><div class="kpi-sub">do total de FTs</div>
-    </div>
-  </div>
-  <div id="table-ferias"></div>
-</div>
-
-<!-- APOIO EXTRA PAGE -->
-<div id="page-apoio" class="page">
-  <div class="section-title">⚡ Apoio Extra</div>
-  <div class="kpi-grid">
-    <div class="kpi-card" style="--card-accent:#ff6b35">
-      <div class="kpi-label">Total de Registros</div>
-      <div class="kpi-value">82</div><div class="kpi-sub">ocorrências</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#34d399">
-      <div class="kpi-label">Valor Total</div>
-      <div class="kpi-value">R$12.4k</div><div class="kpi-sub">R$ 12.385,00</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#a78bfa">
-      <div class="kpi-label">% do Total</div>
-      <div class="kpi-value">7.4%</div><div class="kpi-sub">do total de FTs</div>
-    </div>
-  </div>
-  <div id="table-apoio"></div>
-</div>
-
-<!-- ATESTADOS PAGE -->
-<div id="page-atestados" class="page">
-  <div class="section-title">🏥 Atestados e Faltas</div>
-  <div class="kpi-grid">
-    <div class="kpi-card" style="--card-accent:#f87171">
-      <div class="kpi-label">Total de Registros</div>
-      <div class="kpi-value">67</div><div class="kpi-sub">ocorrências</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#34d399">
-      <div class="kpi-label">Valor Total</div>
-      <div class="kpi-value">R$10.5k</div><div class="kpi-sub">R$ 10.480,00</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#fbbf24">
-      <div class="kpi-label">Atestados</div>
-      <div class="kpi-value">35</div><div class="kpi-sub">vs 32 faltas</div>
-    </div>
-  </div>
-  <div id="table-atestados"></div>
-</div>
-
-<!-- VAGAS PAGE -->
-<div id="page-vagas" class="page">
-  <div class="section-title">🚨 Vagas em Aberto</div>
-  <div class="kpi-grid">
-    <div class="kpi-card" style="--card-accent:#f87171">
-      <div class="kpi-label">Vagas em Aberto</div>
-      <div class="kpi-value">54</div><div class="kpi-sub">posições sem cobertura</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#fbbf24">
-      <div class="kpi-label">Valor em Aberto</div>
-      <div class="kpi-value">R$8.7k</div><div class="kpi-sub">R$ 8.736,00</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#ff6b35">
-      <div class="kpi-label">Motivo Principal</div>
-      <div class="kpi-value">Efetivo</div><div class="kpi-sub">falta de efetivo</div>
-    </div>
-  </div>
-  <div id="table-vagas"></div>
-</div>
-
-<!-- REMANEJAMENTOS PAGE -->
-<div id="page-remanejamentos" class="page">
-  <div class="section-title">🔄 Remanejamentos</div>
-  <div class="kpi-grid">
-    <div class="kpi-card" style="--card-accent:#a78bfa">
-      <div class="kpi-label">Total Remanejados</div>
-      <div class="kpi-value">17</div><div class="kpi-sub">ocorrências</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#34d399">
-      <div class="kpi-label">Valor Total</div>
-      <div class="kpi-value">R$2.7k</div><div class="kpi-sub">R$ 2.760,00</div>
-    </div>
-  </div>
-  <div id="table-remanejamentos"></div>
-</div>
-
-<!-- TREINAMENTO PAGE -->
-<div id="page-treinamento" class="page">
-  <div class="section-title">🎓 Treinamentos</div>
-  <div class="kpi-grid">
-    <div class="kpi-card" style="--card-accent:#00e5ff">
-      <div class="kpi-label">Total Treinamentos</div>
-      <div class="kpi-value">28</div><div class="kpi-sub">ocorrências</div>
-    </div>
-    <div class="kpi-card" style="--card-accent:#34d399">
-      <div class="kpi-label">Valor Total</div>
-      <div class="kpi-value">R$4.2k</div><div class="kpi-sub">R$ 4.190,00</div>
-    </div>
-  </div>
-  <div id="table-treinamentos"></div>
 </div>
 
 <!-- ANALYTICS PAGE -->
@@ -1960,6 +1818,18 @@ document.addEventListener('DOMContentLoaded', () => {
 <div id="page-historico" class="page">
   <div class="section-title">🗂️ Histórico Completo de FTs</div>
 
+  <!-- Category quick-filter pills -->
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px" id="cat-pills">
+    <button onclick="histSetCat('')" class="cat-pill active" id="pill-all" style="background:var(--surface2);border:1px solid var(--accent);color:var(--accent);border-radius:20px;padding:7px 16px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">📋 Todos</button>
+    <button onclick="histSetCat('FTS FIXAS')" class="cat-pill" id="pill-fixas" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:20px;padding:7px 16px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">🔒 FTs Fixas</button>
+    <button onclick="histSetCat('FTS FERIAS')" class="cat-pill" id="pill-ferias" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:20px;padding:7px 16px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">🏖️ Férias</button>
+    <button onclick="histSetCat('FTS APOIO EXTRA')" class="cat-pill" id="pill-apoio" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:20px;padding:7px 16px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">⚡ Apoio Extra</button>
+    <button onclick="histSetCat('FTS ATESTADOS e FALTAS')" class="cat-pill" id="pill-atestados" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:20px;padding:7px 16px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">🏥 Atestados/Faltas</button>
+    <button onclick="histSetCat('FTS VAGAS EM ABERTO')" class="cat-pill" id="pill-vagas" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:20px;padding:7px 16px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">🚨 Vagas em Aberto</button>
+    <button onclick="histSetCat('REMANEJAMENTOS')" class="cat-pill" id="pill-remanejamentos" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:20px;padding:7px 16px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">🔄 Remanejamentos</button>
+    <button onclick="histSetCat('FTS TREINAMENTO')" class="cat-pill" id="pill-treinamento" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:20px;padding:7px 16px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">🎓 Treinamento</button>
+  </div>
+
   <!-- KPI strip -->
   <div class="kpi-grid" id="hist-kpis" style="margin-bottom:24px">
     <div class="kpi-card" style="--card-accent:#00e5ff">
@@ -2038,7 +1908,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <!-- Categoria -->
       <div style="display:flex;flex-direction:column;gap:6px">
         <label style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px">Categoria</label>
-        <select class="search-input" id="hist-f-cat" onchange="renderHistorico()" style="width:100%">
+        <select class="search-input" id="hist-f-cat" onchange="histSyncPillFromSelect()" style="width:100%">
           <option value="">Todas as categorias</option>
           <option value="FTS FIXAS">FTs Fixas</option>
           <option value="FTS FERIAS">Férias</option>
@@ -2318,7 +2188,47 @@ function showPage(id, btn) {
   }
 }
 
-// ==================== OVERVIEW CHARTS ====================
+// ==================== HIST CATEGORY PILL SYNC ====================
+function histSetCat(catVal) {
+  const catSel = document.getElementById('hist-f-cat');
+  if (catSel) { catSel.value = catVal; }
+  // Update pill styles
+  const pillMap = {
+    '': 'pill-all',
+    'FTS FIXAS': 'pill-fixas',
+    'FTS FERIAS': 'pill-ferias',
+    'FTS APOIO EXTRA': 'pill-apoio',
+    'FTS ATESTADOS e FALTAS': 'pill-atestados',
+    'FTS VAGAS EM ABERTO': 'pill-vagas',
+    'REMANEJAMENTOS': 'pill-remanejamentos',
+    'FTS TREINAMENTO': 'pill-treinamento'
+  };
+  Object.values(pillMap).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.borderColor = 'var(--border)';
+    el.style.color = 'var(--text-muted)';
+    el.style.background = 'var(--surface2)';
+  });
+  const activeId = pillMap[catVal];
+  if (activeId) {
+    const el = document.getElementById(activeId);
+    if (el) {
+      el.style.borderColor = 'var(--accent)';
+      el.style.color = 'var(--accent)';
+      el.style.background = 'rgba(0,229,255,0.08)';
+    }
+  }
+  renderHistorico();
+}
+
+// Also sync pills when category dropdown changes manually
+function histSyncPillFromSelect() {
+  const val = document.getElementById('hist-f-cat')?.value || '';
+  histSetCat(val);
+}
+
+
 function renderOverviewCharts() {
   // Destroy existing chart instances to avoid canvas reuse errors
   ['chartCategories','chartValorTipo','chartMotivos'].forEach(id => {
@@ -2409,6 +2319,14 @@ function renderOverviewCharts() {
   });
 }
 
+function goHistoricoFilter(catKey) {
+  // Navigate to histórico first
+  const histTab = document.querySelector('[onclick*="historico"]');
+  if (histTab) histTab.click();
+  // Then set the category pill (setTimeout to ensure page is shown)
+  setTimeout(() => histSetCat(catKey), 50);
+}
+
 // ==================== CATEGORY LIST ====================
 function renderCategoryList() {
   const cats = [
@@ -2425,7 +2343,7 @@ function renderCategoryList() {
   el.innerHTML = cats.map(c => {
     const d = DATA.summary[c.key];
     const pct = (d.total / totalVal * 100).toFixed(1);
-    return `<div class="category-item" onclick="document.querySelector('[onclick*=\\'${c.name.includes('Fixas') ? 'fixas' : c.name.includes('Férias') ? 'ferias' : c.name.includes('Apoio') ? 'apoio' : c.name.includes('Atestados') ? 'atestados' : c.name.includes('Vagas') ? 'vagas' : c.name.includes('Remane') ? 'remanejamentos' : 'treinamento'}\\'\\']').click()">
+    return `<div class="category-item" onclick="goHistoricoFilter('${c.key}')">
       <div class="cat-icon" style="background:${c.color}22">${c.icon}</div>
       <div class="cat-info">
         <div class="cat-name">${c.name}</div>
@@ -3558,7 +3476,8 @@ function histClearFilters() {
     if (el) el.value = '';
   });
   histState.page = 1;
-  renderHistorico();
+  // Reset pills
+  histSetCat('');
 }
 
 function renderHistorico() {
@@ -4152,13 +4071,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // The real data uses the seeded RECORDS
   const cols = ['Data','Funcionário','Posto','Serviço','Valor','Motivo','Cobertura','Observação'];
   
-  createTable('table-fixas', RECORDS['FTS FIXAS'], cols);
-  createTable('table-ferias', RECORDS['FTS FERIAS'], cols);
-  createTable('table-apoio', RECORDS['FTS APOIO EXTRA'], cols);
-  createTable('table-atestados', RECORDS['FTS ATESTADOS e FALTAS'], cols);
-  createTable('table-vagas', RECORDS['FTS VAGAS EM ABERTO'], cols);
-  createTable('table-remanejamentos', RECORDS['REMANEJAMENTOS'], cols);
-  createTable('table-treinamentos', RECORDS['FTS TREINAMENTO'], cols);
+  // Tables for individual pages removed — all data accessed via Histórico with filters
   // Init diagnostics counters
   setTimeout(updateDiagCounters, 2000);
 });
