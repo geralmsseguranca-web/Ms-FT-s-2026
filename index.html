@@ -1277,7 +1277,6 @@ async function executeFirebaseOp(op) {
 window.loadFromFirestore = async function(force) {
   diagLog('📥 Verificando Firestore...');
   updateDiagStatus('Verificando...');
-  const localTotal = Object.values(RECORDS).flat().length;
   try {
     const { collection, getDocs } = window.firebaseFns;
     if (!window.firebaseDB || !window.firebaseFns) {
@@ -1288,6 +1287,8 @@ window.loadFromFirestore = async function(force) {
     const snap = await getDocs(collection(window.firebaseDB, 'fts_records'));
 
     if (snap.empty) {
+      // Firestore truly empty — first run, seed from HTML data
+      const localTotal = Object.values(RECORDS).flat().length;
       diagLog('📭 Firestore vazio — enviando seed com ' + localTotal + ' registros...');
       updateDiagStatus('Firestore vazio — fazendo seed...');
       window.showSyncOverlay && window.showSyncOverlay('Primeira sincronização — enviando dados...');
@@ -1295,47 +1296,11 @@ window.loadFromFirestore = async function(force) {
       return;
     }
 
+    // Firestore has data — always trust it as source of truth.
+    // Never re-seed: deletions made by the user are intentional.
     const fsTotal = snap.size;
-    diagLog('📊 Firestore: ' + fsTotal + ' registros | Local: ' + localTotal + ' registros');
+    diagLog('📊 Firestore: ' + fsTotal + ' registros — carregando...');
 
-    // PROTECTION: only replace local data if Firestore has full dataset
-    // Check that ALL 7 categories have records in Firestore (not just one)
-    const cats7 = ['FTS FIXAS','FTS FERIAS','FTS APOIO EXTRA','FTS ATESTADOS e FALTAS','FTS VAGAS EM ABERTO','REMANEJAMENTOS','FTS TREINAMENTO'];
-    const fsCatCounts = {};
-    snap.forEach(d => {
-      const cat = d.data().categoria;
-      fsCatCounts[cat] = (fsCatCounts[cat] || 0) + 1;
-    });
-    const fsFilledCats = cats7.filter(c => (fsCatCounts[c] || 0) > 0).length;
-    const fsIncomplete = !force && (fsTotal < localTotal * 0.9 || fsFilledCats < cats7.length);
-
-    if (fsIncomplete) {
-      diagLog('⚠️ Firestore incompleto (' + fsTotal + ' registros, ' + fsFilledCats + '/7 categorias). ' +
-              'Mantendo dados locais. Use "Re-seed" no diagnóstico para corrigir.');
-      updateDiagStatus('⚠️ Firestore incompleto — dados locais mantidos');
-      // Still attach Firestore IDs to local records where we can match them
-      const fsMap = {};
-      snap.forEach(d => {
-        const dd = d.data();
-        const key = [dd.data, dd.funcionario, dd.posto, dd.categoria].join('|');
-        fsMap[key] = d.id;
-      });
-      let matched = 0;
-      Object.entries(RECORDS).forEach(([cat, rows]) => {
-        rows.forEach(row => {
-          const key = [row[0], row[1], row[2], cat].join('|');
-          if (fsMap[key] && !row[8]) { row[8] = fsMap[key]; matched++; }
-        });
-      });
-      diagLog('🔗 ' + matched + ' registros locais vinculados a IDs do Firestore.');
-      updateConnectionUI(window.isOnline);
-      // Trigger re-seed automatically since Firestore is missing data
-      diagLog('🌱 Auto-seed: reenviando dados locais para o Firestore...');
-      await window.seedFirestore();
-      return;
-    }
-
-    // Safe to replace — Firestore has full data
     const cats = ['FTS FIXAS','FTS FERIAS','FTS APOIO EXTRA','FTS ATESTADOS e FALTAS','FTS VAGAS EM ABERTO','REMANEJAMENTOS','FTS TREINAMENTO'];
     cats.forEach(c => RECORDS[c] = []);
     let count = 0;
@@ -1343,12 +1308,14 @@ window.loadFromFirestore = async function(force) {
       const data = d.data();
       const cat = data.categoria;
       if (RECORDS[cat]) {
-        RECORDS[cat].push([data.data, data.funcionario, data.posto, data.servico,
-          parseFloat(data.valor)||0, data.motivo, data.cobertura||'nan', data.obs||'nan', d.id]);
+        RECORDS[cat].push([
+          data.data, data.funcionario, data.posto, data.servico,
+          parseFloat(data.valor)||0, data.motivo,
+          data.cobertura||'nan', data.obs||'nan', d.id
+        ]);
         count++;
       }
     });
-    // Sort each category by date descending (most recent first)
     cats.forEach(c => {
       RECORDS[c].sort((a, b) => (b[0] || '').localeCompare(a[0] || ''));
     });
@@ -1487,6 +1454,34 @@ window.deleteFTFromFirestore = async function(firestoreId) {
     diagLog(`❌ Erro ao excluir: ${e.message}`);
     window.pendingQueue.push({ type:'delete', id: firestoreId });
     savePendingQueue();
+  }
+};
+
+// Delete by matching fields when no Firestore ID is available
+window.deleteFTFromFirestoreByMatch = async function(row, catKey) {
+  if (!window.firebaseDB || !window.firebaseFns) return;
+  try {
+    const { collection, getDocs, deleteDoc, doc } = window.firebaseFns;
+    const snap = await getDocs(collection(window.firebaseDB, 'fts_records'));
+    let deleted = 0;
+    const ops = [];
+    snap.forEach(d => {
+      const dd = d.data();
+      if (
+        dd.categoria === catKey &&
+        (dd.data||'') === (row[0]||'') &&
+        (dd.funcionario||'').trim().toUpperCase() === (row[1]||'').trim().toUpperCase() &&
+        (dd.posto||'').trim().toUpperCase() === (row[2]||'').trim().toUpperCase() &&
+        (dd.servico||'').trim().toUpperCase() === (row[3]||'').trim().toUpperCase()
+      ) {
+        ops.push(deleteDoc(doc(window.firebaseDB, 'fts_records', d.id)));
+        deleted++;
+      }
+    });
+    await Promise.all(ops);
+    diagLog(`🗑️ Excluído do Firestore por correspondência: ${deleted} registro(s) [${row[0]} / ${row[1]}]`);
+  } catch(e) {
+    diagLog(`❌ Erro ao excluir por correspondência: ${e.message}`);
   }
 };
 
@@ -1981,6 +1976,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </main>
 
+<!-- MODAL DUPLICIDADE -->
+<div class="modal-overlay" id="dupModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title" style="color:var(--warning);display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px">⚠️</span> Lançamento Duplicado
+      </div>
+      <button class="modal-close" onclick="closeDupModal()">×</button>
+    </div>
+    <div style="margin-bottom:20px">
+      <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);border-radius:12px;padding:16px;margin-bottom:16px">
+        <p style="color:var(--text-dim);font-size:13px;line-height:1.7;margin-bottom:12px">
+          Já existe um lançamento para <strong style="color:var(--text)" id="dup-info-func"></strong> no posto <strong style="color:var(--text)" id="dup-info-posto"></strong> em <strong style="color:var(--text)" id="dup-info-data"></strong> com o serviço <strong style="color:var(--text)" id="dup-info-servico"></strong>.
+        </p>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted)">
+          <span style="color:var(--accent4);margin-right:8px">●</span>Lançamento existente:
+          <span id="dup-info-existente" style="color:var(--text-dim);margin-left:4px"></span>
+        </div>
+      </div>
+      <p style="color:var(--text-muted);font-size:12px;font-family:'DM Mono',monospace">
+        Foi uma tentativa acidental? Clique em <strong style="color:var(--accent)">Editar</strong> para corrigir o lançamento existente, ou em <strong style="color:var(--warning)">Salvar mesmo assim</strong> se for realmente um novo registro.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeDupModal()">Cancelar</button>
+      <button style="background:var(--surface2);border:1px solid var(--accent);border-radius:10px;color:var(--accent);padding:10px 20px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s" onclick="editDupExisting()">✏️ Editar existente</button>
+      <button style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.4);border-radius:10px;color:var(--warning);padding:10px 20px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s" onclick="saveFTForced()">Salvar mesmo assim</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL NOVA/EDITAR FT -->
 <div class="modal-overlay" id="ftModal">
   <div class="modal">
@@ -2013,7 +2039,15 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <div class="form-group">
         <label class="form-label">Serviço</label>
-        <input type="text" class="form-input" id="fServico" placeholder="Ex: FT PORT/VIGIA 12 HS..." />
+        <div style="position:relative">
+          <input type="text" class="form-input" id="fServico" placeholder="Digite ou escolha o serviço..." autocomplete="off"
+                 oninput="filterServDatalist(this.value)"
+                 onfocus="showServDatalist(this.value)"
+                 onblur="hideServDatalist()"
+                 onkeydown="servDatalistKey(event)" />
+          <div id="dl-servico" class="custom-dl" style="display:none"></div>
+        </div>
+        <span id="fServico-hint" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--accent4);margin-top:4px;display:none">✓ Valor sugerido automaticamente</span>
       </div>
       <div class="form-group">
         <label class="form-label">Valor (R$)</label>
@@ -2115,6 +2149,9 @@ window.saveFTToFirestore = async function(row, catKey, existingId) {
 };
 window.deleteFTFromFirestore = async function(id) {
   console.log('[FTS] deleteFTFromFirestore: Firebase not ready yet');
+};
+window.deleteFTFromFirestoreByMatch = async function(row, catKey) {
+  console.log('[FTS] deleteFTFromFirestoreByMatch: Firebase not ready yet');
 };
 window.loadFromFirestore = async function() {
   console.log('[FTS] loadFromFirestore: Firebase not ready yet');
@@ -2689,6 +2726,8 @@ function openAddModal(catKey) {
   document.getElementById('fPosto').value = '';
   document.getElementById('fServico').value = '';
   document.getElementById('fValor').value = '';
+  const hint = document.getElementById('fServico-hint');
+  if (hint) hint.style.display = 'none';
   document.getElementById('fMotivo').value = 'BICO FIXO';
   document.getElementById('fCategoria').value = catKey || 'FTS FIXAS';
   document.getElementById('fCobertura').value = '';
@@ -2724,6 +2763,9 @@ function closeDeleteModal() {
 }
 
 // Close on backdrop click
+document.getElementById('dupModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('dupModal')) closeDupModal();
+});
 document.getElementById('ftModal').addEventListener('click', e => {
   if (e.target === document.getElementById('ftModal')) closeModal();
 });
@@ -2731,53 +2773,122 @@ document.getElementById('deleteModal').addEventListener('click', e => {
   if (e.target === document.getElementById('deleteModal')) closeDeleteModal();
 });
 
+// ---- DUPLICATE STATE ----
+let _pendingFTPayload = null; // stores form data while dup modal is open
+let _dupMatch = null;         // { catKey, rowIndex } of the existing record
+
+function closeDupModal() {
+  document.getElementById('dupModal').classList.remove('open');
+  _pendingFTPayload = null;
+  _dupMatch = null;
+}
+
+function editDupExisting() {
+  // Close both modals, open edit modal for the existing record
+  closeDupModal();
+  closeModal();
+  if (_dupMatch) openEditModal(_dupMatch.catKey, _dupMatch.rowIndex);
+}
+
+function saveFTForced() {
+  // User confirmed: save anyway despite duplicate
+  closeDupModal();
+  if (_pendingFTPayload) persistFT(_pendingFTPayload);
+}
+
 // ---- SAVE ----
 function saveFT() {
-  const data = document.getElementById('fData').value;
-  const func = document.getElementById('fFunc').value.trim().toUpperCase();
-  const posto = document.getElementById('fPosto').value.trim().toUpperCase();
+  const data    = document.getElementById('fData').value;
+  const func    = document.getElementById('fFunc').value.trim().toUpperCase();
+  const posto   = document.getElementById('fPosto').value.trim().toUpperCase();
   const servico = document.getElementById('fServico').value.trim().toUpperCase();
-  const valor = parseFloat(document.getElementById('fValor').value) || 0;
-  const motivo = document.getElementById('fMotivo').value;
-  const catKey = document.getElementById('fCategoria').value;
-  const cob = document.getElementById('fCobertura').value.trim() || 'nan';
-  const obs = document.getElementById('fObs').value.trim() || 'nan';
+  saveLearnedService(servico);
+  const valor   = parseFloat(document.getElementById('fValor').value) || 0;
+  const motivo  = document.getElementById('fMotivo').value;
+  const catKey  = document.getElementById('fCategoria').value;
+  const cob     = document.getElementById('fCobertura').value.trim() || 'nan';
+  const obs     = document.getElementById('fObs').value.trim() || 'nan';
 
   if (!data || !func || !posto) {
     showToast('⚠️ Preencha Data, Funcionário e Posto!', true);
     return;
   }
 
+  const payload = { data, func, posto, servico, valor, motivo, catKey, cob, obs };
+
+  // ── Duplicate check (only on new records, not edits) ──
+  if (!editState) {
+    const norm = s => (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    let dupFound = null;
+    outer: for (const [ck, rows] of Object.entries(RECORDS)) {
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        if (
+          (r[0] || '') === data &&
+          norm(r[1]) === norm(func) &&
+          norm(r[2]) === norm(posto) &&
+          norm(r[3]) === norm(servico)
+        ) {
+          dupFound = { catKey: ck, rowIndex: i, row: r };
+          break outer;
+        }
+      }
+    }
+
+    if (dupFound) {
+      // Store for later
+      _pendingFTPayload = payload;
+      _dupMatch = { catKey: dupFound.catKey, rowIndex: dupFound.rowIndex };
+
+      // Fill dup modal info
+      const r = dupFound.row;
+      const dataFmt = data.split('-').reverse().join('/');
+      document.getElementById('dup-info-func').textContent    = func;
+      document.getElementById('dup-info-posto').textContent   = posto;
+      document.getElementById('dup-info-data').textContent    = dataFmt;
+      document.getElementById('dup-info-servico').textContent = servico || '(sem serviço)';
+      document.getElementById('dup-info-existente').textContent =
+        `${dataFmt} • ${r[3] || '—'} • Motivo: ${r[5] || '—'} • Valor: R$ ${parseFloat(r[4] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+      document.getElementById('dupModal').classList.add('open');
+      return;
+    }
+  }
+
+  persistFT(payload);
+}
+
+// ---- PERSIST (actual write after validation) ----
+function persistFT(payload) {
+  const { data, func, posto, servico, valor, motivo, catKey, cob, obs } = payload;
   const newRow = [data, func, posto, servico, valor, motivo, cob, obs];
 
   if (editState) {
-    // EDIT: update in place (handle category change)
     const oldCat = editState.catKey;
     const oldIdx = editState.rowIndex;
-
     if (oldCat !== catKey) {
-      // Remove from old category
       RECORDS[oldCat].splice(oldIdx, 1);
-      // Add to new category
       RECORDS[catKey].unshift(newRow);
     } else {
       RECORDS[catKey][oldIdx] = newRow;
     }
     showToast('✅ FT atualizada com sucesso!');
   } else {
-    // ADD: prepend to selected category
     RECORDS[catKey].unshift(newRow);
     showToast('✅ Nova FT adicionada com sucesso!');
   }
 
   closeModal();
 
-  // FIREBASE: persist to Firestore
-  const existingId = editState ? (RECORDS[catKey] && RECORDS[catKey][editState ? editState.rowIndex : -1] ? RECORDS[catKey][editState.rowIndex][8] : null) : null;
+  const existingId = editState
+    ? (RECORDS[catKey]?.[editState.rowIndex]?.[8] ?? null)
+    : null;
+
   window.saveFTToFirestore(newRow, catKey, existingId || null).then(newId => {
     if (newId && newRow) {
-      // Store firestore ID as index 8 of the row
-      const rowRef = editState ? RECORDS[catKey].find(r => JSON.stringify(r.slice(0,7)) === JSON.stringify(newRow.slice(0,7))) : RECORDS[catKey][0];
+      const rowRef = editState
+        ? RECORDS[catKey].find(r => JSON.stringify(r.slice(0, 7)) === JSON.stringify(newRow.slice(0, 7)))
+        : RECORDS[catKey][0];
       if (rowRef) rowRef[8] = newId;
     }
     updateDiagCounters();
@@ -2794,14 +2905,26 @@ function requestDelete(catKey, rowIndex) {
 
 function confirmDelete() {
   if (!deleteState) return;
-  const row = RECORDS[deleteState.catKey][deleteState.rowIndex];
-  const firestoreId = row ? row[8] : null;
-  RECORDS[deleteState.catKey].splice(deleteState.rowIndex, 1);
+  const { catKey, rowIndex } = deleteState;
+  const row = RECORDS[catKey][rowIndex];
+  if (!row) { closeDeleteModal(); return; }
+
+  // Get Firestore ID — may be in row[8] if record came from Firestore
+  const firestoreId = row[8] || null;
+
+  // Remove from local RECORDS first
+  RECORDS[catKey].splice(rowIndex, 1);
   closeDeleteModal();
   syncAll();
   showToast('🗑️ FT excluída e sistema atualizado.');
-  // FIREBASE: delete from Firestore
-  if (firestoreId) window.deleteFTFromFirestore(firestoreId);
+
+  if (firestoreId) {
+    // Has ID — delete directly
+    window.deleteFTFromFirestore(firestoreId);
+  } else {
+    // No ID — find in Firestore by matching fields and delete
+    window.deleteFTFromFirestoreByMatch(row, catKey);
+  }
   updateDiagCounters();
 }
 
@@ -3538,14 +3661,20 @@ function renderHistorico() {
       const catColor = HIST_CAT_COLORS[catKey] || '#94a3b8';
       const catLabel = HIST_CAT_LABELS[catKey] || catKey;
       const mColor = mc[r[5]] || '#94a3b8';
-      // Find real index for edit/delete
-      const realIdx = RECORDS[catKey] ? RECORDS[catKey].indexOf(r.slice(0, 9)) : -1;
-      const actionsHtml = realIdx >= 0
-        ? `<td style="text-align:center;white-space:nowrap">
-            <button class="btn-edit-row" title="Editar" onclick="openEditModal('${catKey}', ${realIdx})">✏️</button>
-            <button class="btn-delete-row" title="Excluir" onclick="requestDelete('${catKey}', ${realIdx})">🗑️</button>
-           </td>`
-        : `<td></td>`;
+      // Find real index in RECORDS using direct reference
+      let realIdx = -1;
+      if (RECORDS[catKey]) {
+        realIdx = RECORDS[catKey].findIndex(rec =>
+          rec[0] === r[0] && rec[1] === r[1] && rec[2] === r[2] &&
+          rec[3] === r[3] && rec[4] === r[4] && rec[5] === r[5]
+        );
+      }
+      const actionsHtml = `<td style="text-align:center;white-space:nowrap;padding:8px 10px">
+          <button class="btn-edit-row" title="Editar" style="font-size:15px;padding:5px 8px"
+            onclick="openEditModal('${catKey}', ${realIdx})">✏️</button>
+          <button class="btn-delete-row" title="Excluir" style="font-size:15px;padding:5px 8px"
+            onclick="requestDelete('${catKey}', ${realIdx})">🗑️</button>
+        </td>`;
       return `<tr>
         <td class="date">${r[0]}</td>
         <td class="name">${r[1] || '—'}</td>
@@ -3797,30 +3926,29 @@ function histExportPDF() {
     doc.setTextColor(100, 116, 139);
     doc.text(`Total de lançamentos: ${rows.length}`, 20, 63.5);
 
-    // Bottom accent bar
+    // Bottom accent bar — raised to H-8 so text sits clearly above it
     doc.setFillColor(0, 180, 216);
-    doc.rect(0, H - 6, W, 6, 'F');
+    doc.rect(0, H - 8, W, 8, 'F');
     doc.setFontSize(6);
     doc.setTextColor(255, 255, 255);
     const colabRodape = colabFiltro ? colabFiltro.toUpperCase() : 'TODOS OS COLABORADORES';
-    // Esquerda: nome do colaborador limitado a 1/3 da largura
+    // Esquerda: nome do colaborador
     doc.setFont('helvetica', 'bold');
-    doc.text(colabRodape, 14, H - 2, { align: 'left', maxWidth: W / 3 - 10 });
-    // Centro: data de emissão e info
+    doc.text(colabRodape, 14, H - 3.5, { align: 'left', maxWidth: W / 3 - 10 });
+    // Centro: data de emissão
     doc.setFont('helvetica', 'normal');
-    doc.text(`Emitido em ${nowFmt}  —  Documento gerado automaticamente`, W / 2, H - 2, { align: 'center', maxWidth: W / 3 + 10 });
+    doc.text(`Emitido em ${nowFmt}  —  Documento gerado automaticamente`, W / 2, H - 3.5, { align: 'center', maxWidth: W / 3 + 10 });
     // Direita: MS Segurança
     doc.setFont('helvetica', 'bold');
-    doc.text('MS Segurança', W - 14, H - 2, { align: 'right', maxWidth: 35 });
+    doc.text('MS Segurança', W - 14, H - 3.5, { align: 'right', maxWidth: 35 });
   }
 
   // ── first pass: render table to get total pages ──────────────
-  // We'll use autoTable's willAddPage to count pages and then redraw
   let totalPages = 1;
 
   doc.autoTable({
     startY: 70,
-    head: [['Data', 'Funcionário', 'Posto', 'Serviço', 'Valor (R$)', 'Motivo', 'Categoria']],
+    head: [['Data', 'Funcionário', 'Posto', 'Serviço', 'Valor (R$)', 'Motivo', 'Ausente']],
     body: rows.map(r => [
       r[0] ? r[0].split('-').reverse().join('/') : '—',
       r[1] || '—',
@@ -3828,7 +3956,7 @@ function histExportPDF() {
       r[3] || '—',
       r[4] > 0 ? parseFloat(r[4]).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—',
       r[5] || '—',
-      HIST_CAT_LABELS[r[9]] || r[9] || '—'
+      (r[6] && r[6] !== 'nan') ? r[6] : '—'
     ]),
     styles: {
       font: 'helvetica',
@@ -3851,30 +3979,23 @@ function histExportPDF() {
     },
     columnStyles: {
       0: { cellWidth: 18, halign: 'center' },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 32 },
-      3: { cellWidth: 42 },
+      1: { cellWidth: 38 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 38 },
       4: { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [5, 150, 105] },
-      5: { cellWidth: 25 },
-      6: { cellWidth: 25 }
+      5: { cellWidth: 24 },
+      6: { cellWidth: 32 }
     },
-    margin: { left: 14, right: 14, bottom: 20 },
+    margin: { left: 14, right: 14, bottom: 22 },
     didDrawPage: (data) => {
       totalPages = data.pageCount;
     }
   });
 
   // ── second pass: redraw everything cleanly ───────────────────
-  // Reset
   doc.deletePage(1);
-  // Regenerate
   for (let p = 0; p < totalPages; p++) {
-    if (p === 0) {
-      // doc already has 0 pages after delete, addPage adds first
-      doc.addPage();
-    } else {
-      doc.addPage();
-    }
+    doc.addPage();
     drawPageShell(p + 1, totalPages);
   }
 
@@ -3882,7 +4003,7 @@ function histExportPDF() {
   doc.setPage(1);
   doc.autoTable({
     startY: 70,
-    head: [['Data', 'Funcionário', 'Posto', 'Serviço', 'Valor (R$)', 'Motivo', 'Categoria']],
+    head: [['Data', 'Funcionário', 'Posto', 'Serviço', 'Valor (R$)', 'Motivo', 'Ausente']],
     body: rows.map(r => [
       r[0] ? r[0].split('-').reverse().join('/') : '—',
       r[1] || '—',
@@ -3890,7 +4011,7 @@ function histExportPDF() {
       r[3] || '—',
       r[4] > 0 ? parseFloat(r[4]).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—',
       r[5] || '—',
-      HIST_CAT_LABELS[r[9]] || r[9] || '—'
+      (r[6] && r[6] !== 'nan') ? r[6] : '—'
     ]),
     styles: {
       font: 'helvetica',
@@ -3913,14 +4034,14 @@ function histExportPDF() {
     },
     columnStyles: {
       0: { cellWidth: 18, halign: 'center' },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 32 },
-      3: { cellWidth: 42 },
+      1: { cellWidth: 38 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 38 },
       4: { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [5, 150, 105] },
-      5: { cellWidth: 25 },
-      6: { cellWidth: 25 }
+      5: { cellWidth: 24 },
+      6: { cellWidth: 32 }
     },
-    margin: { left: 14, right: 14, bottom: 20 }
+    margin: { left: 14, right: 14, bottom: 22 }
   });
 
   // ── last page: total + signature block ───────────────────────
@@ -4060,6 +4181,174 @@ function histExportPDF() {
   const colabSlug = (colabFiltro || 'geral').replace(/\s+/g, '_').toLowerCase();
   doc.save(`Recibo_FTS_${colabSlug}_${dateFile}.pdf`);
   showToast(`✅ Recibo PDF gerado — ${rows.length} lançamentos  |  ${totalValFmt}`);
+}
+
+// ==================== SERVIÇO DATALIST WITH LEARNING & AUTO-VALUE ====================
+
+// Base services extracted from data
+const BASE_SERVICES = [
+  'FT PORT/VIGIA 12 HS DIURNO',
+  'FT PORT/VIGIA 12 HS NOTURNO',
+  'FT PORT/VIGIA 13 HS',
+  'FT PORT/VIGIA 14 HS',
+  'F.T VIGIA 15HS',
+  'F.T VIGIA 17HS',
+  'FT PORT/VIGIA 8 HS',
+  'FT PORT/VIGIA 7 HS',
+  'FT PORT/VIGIA 06 HS',
+  'FT PORT/VIGIA 04 HS',
+  'FT PORT/VIGIA 03 HS',
+  'FT FAXINA/GERAIS',
+  'FT FAXINA/GERAIS (MEIA)'
+];
+
+// Load learned services from localStorage
+function getLearnedServices() {
+  try { return JSON.parse(localStorage.getItem('fts_services') || '[]'); } catch { return []; }
+}
+function saveLearnedService(name) {
+  const learned = getLearnedServices();
+  const norm = name.trim().toUpperCase();
+  if (!norm) return;
+  if (BASE_SERVICES.includes(norm)) return;
+  if (learned.includes(norm)) return;
+  learned.push(norm);
+  try { localStorage.setItem('fts_services', JSON.stringify(learned)); } catch {}
+}
+
+// All available services = base + learned, deduplicated
+function getAllServices() {
+  const learned = getLearnedServices();
+  const all = [...BASE_SERVICES];
+  learned.forEach(s => { if (!all.includes(s)) all.push(s); });
+  return all;
+}
+
+// Build a map of service -> most frequent value from RECORDS
+function buildServiceValueMap() {
+  const map = {}; // service -> { values: [], counts: {} }
+  Object.values(RECORDS).forEach(rows => {
+    rows.forEach(row => {
+      const svc = (row[3] || '').trim().toUpperCase();
+      const val = parseFloat(row[4]);
+      if (!svc || isNaN(val) || val <= 0) return;
+      if (!map[svc]) map[svc] = {};
+      map[svc][val] = (map[svc][val] || 0) + 1;
+    });
+  });
+  // Resolve to most frequent value per service
+  const result = {};
+  Object.entries(map).forEach(([svc, counts]) => {
+    const best = Object.entries(counts).sort((a,b) => b[1]-a[1])[0];
+    if (best) result[svc] = parseFloat(best[0]);
+  });
+  return result;
+}
+
+let _serviceValueMap = null;
+function getServiceValueMap() {
+  if (!_serviceValueMap) _serviceValueMap = buildServiceValueMap();
+  return _serviceValueMap;
+}
+
+// When a service is selected/typed, auto-fill value if known
+function onServSelected(val) {
+  const norm = val.trim().toUpperCase();
+  const map = getServiceValueMap();
+  const hint = document.getElementById('fServico-hint');
+  if (map[norm] !== undefined) {
+    document.getElementById('fValor').value = map[norm].toFixed(2);
+    if (hint) hint.style.display = 'block';
+  } else {
+    if (hint) hint.style.display = 'none';
+  }
+}
+
+// Datalist show/hide/filter
+let servDlActive = -1;
+
+function buildServItems(filter) {
+  const all = getAllServices();
+  const q = (filter || '').trim().toUpperCase();
+  return q ? all.filter(s => s.includes(q)) : all;
+}
+
+function renderServDl(items) {
+  const dl = document.getElementById('dl-servico');
+  if (!items.length) {
+    dl.innerHTML = `<div class="custom-dl-empty">Nenhum encontrado — pressione Enter para adicionar</div>`;
+  } else {
+    dl.innerHTML = items.map((s, i) => {
+      const map = getServiceValueMap();
+      const valHint = map[s.trim().toUpperCase()] !== undefined
+        ? `<span style="color:var(--accent4);margin-left:8px;font-size:10px">R$ ${map[s.trim().toUpperCase()].toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>`
+        : '';
+      return `<div class="custom-dl-item" data-idx="${i}" data-val="${s}"
+        onmousedown="pickServItem('${s.replace(/'/g,"\\'")}')">${s}${valHint}</div>`;
+    }).join('');
+  }
+  servDlActive = -1;
+}
+
+function showServDatalist(val) {
+  const items = buildServItems(val);
+  renderServDl(items);
+  document.getElementById('dl-servico').style.display = 'block';
+}
+
+function hideServDatalist() {
+  setTimeout(() => {
+    document.getElementById('dl-servico').style.display = 'none';
+    // Learn the typed value on blur
+    const v = document.getElementById('fServico').value.trim().toUpperCase();
+    if (v) {
+      saveLearnedService(v);
+      onServSelected(v);
+      // Invalidate map so new entries are included next open
+      _serviceValueMap = null;
+    }
+  }, 180);
+}
+
+function filterServDatalist(val) {
+  const items = buildServItems(val);
+  renderServDl(items);
+  document.getElementById('dl-servico').style.display = 'block';
+  onServSelected(val);
+}
+
+function pickServItem(val) {
+  document.getElementById('fServico').value = val;
+  document.getElementById('dl-servico').style.display = 'none';
+  saveLearnedService(val);
+  onServSelected(val);
+}
+
+function servDatalistKey(e) {
+  const dl = document.getElementById('dl-servico');
+  const items = dl.querySelectorAll('.custom-dl-item');
+  if (e.key === 'ArrowDown') {
+    servDlActive = Math.min(servDlActive + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    servDlActive = Math.max(servDlActive - 1, 0);
+  } else if (e.key === 'Enter' && servDlActive >= 0) {
+    e.preventDefault();
+    pickServItem(items[servDlActive].dataset.val);
+    return;
+  } else if (e.key === 'Enter') {
+    // Add new typed value
+    const v = document.getElementById('fServico').value.trim().toUpperCase();
+    if (v) { saveLearnedService(v); onServSelected(v); }
+    dl.style.display = 'none';
+    return;
+  } else if (e.key === 'Escape') {
+    dl.style.display = 'none';
+    return;
+  }
+  items.forEach((el, i) => {
+    el.classList.toggle('selected', i === servDlActive);
+    if (i === servDlActive) el.scrollIntoView({ block: 'nearest' });
+  });
 }
 
 // ==================== INIT ====================
