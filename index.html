@@ -1986,7 +1986,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="modal-title" style="color:var(--warning);display:flex;align-items:center;gap:10px">
         <span style="font-size:22px">⚠️</span> Lançamento Duplicado
       </div>
-      <button class="modal-close" onclick="closeDupModal()">×</button>
+      <button class="modal-close" onclick="cancelDupAndNewForm()">×</button>
     </div>
     <div style="margin-bottom:20px">
       <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);border-radius:12px;padding:16px;margin-bottom:16px">
@@ -1999,13 +1999,12 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
       <p style="color:var(--text-muted);font-size:12px;font-family:'DM Mono',monospace">
-        Lançamento acidental? Clique em <strong style="color:var(--accent)">✏️ Corrigir este lançamento</strong> para voltar ao formulário e ajustar os dados (colaborador, horário, motivo etc.), ou em <strong style="color:var(--warning)">Salvar mesmo assim</strong> se for realmente um novo registro.
+        Lançamento acidental? Clique em <strong style="color:var(--accent)">✏️ Corrigir este lançamento</strong> para voltar ao formulário e ajustar os dados (colaborador, horário, motivo etc.), ou em <strong style="color:var(--text-muted)">Cancelar</strong> para descartar e iniciar um novo lançamento.
       </p>
     </div>
     <div class="modal-footer">
-      <button class="btn-cancel" onclick="closeDupModal()">Cancelar</button>
+      <button class="btn-cancel" onclick="cancelDupAndNewForm()">Cancelar</button>
       <button style="background:var(--surface2);border:1px solid var(--accent);border-radius:10px;color:var(--accent);padding:10px 20px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s" onclick="editCurrentForm()">✏️ Corrigir este lançamento</button>
-      <button style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.4);border-radius:10px;color:var(--warning);padding:10px 20px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s" onclick="saveFTForced()">Salvar mesmo assim</button>
     </div>
   </div>
 </div>
@@ -2767,7 +2766,7 @@ function closeDeleteModal() {
 
 // Close on backdrop click
 document.getElementById('dupModal').addEventListener('click', e => {
-  if (e.target === document.getElementById('dupModal')) closeDupModal();
+  if (e.target === document.getElementById('dupModal')) cancelDupAndNewForm();
 });
 document.getElementById('ftModal').addEventListener('click', e => {
   if (e.target === document.getElementById('ftModal')) closeModal();
@@ -2794,10 +2793,13 @@ function editCurrentForm() {
   // ftModal remains open; user corrects the fields (func, posto, data, servico…)
 }
 
-function saveFTForced() {
-  // User confirmed: save anyway despite duplicate
+function cancelDupAndNewForm() {
+  // Discard the pending duplicate, close both modals, then immediately open a fresh form
+  const lastCatKey = (_pendingFTPayload && _pendingFTPayload.catKey) || 'FTS FIXAS';
   closeDupModal();
-  if (_pendingFTPayload) persistFT(_pendingFTPayload);
+  closeModal();
+  // Small delay so both overlays have time to close before reopening
+  setTimeout(() => openAddModal(lastCatKey), 80);
 }
 
 // ---- SAVE ----
